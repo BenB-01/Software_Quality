@@ -15,6 +15,26 @@ optional = true
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
 pytest-mock = "^3.14.0"
+ruff = "^0.8.4"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "tab"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "UP",
+    "B",
+    "N",
+    "SIM",
+    "I001",
+]
 
 [build-system]
 requires = ["poetry-core"]
