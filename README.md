@@ -14,7 +14,8 @@ Integrate discipline-specific research software tools in RCE using a REST interf
 1. Install [Python 3.11](README.md#python)
 2. Install [poetry](README.md#poetry) 
 3. Install dependencies using poetry
-4. Select new Poetry environment 
+4. Select new poetry environment
+5. Install [pre-commit](README.md#pre-commit) hooks
 
 ## 💡 Usage
 REST-RCE can be used via a command line interface. 
@@ -52,3 +53,17 @@ This will create a new virtual environment and install the dependencies defined 
 3. If you want to contribute to the project run `poetry install --with dev` to install the development dependencies.
 4. In your IDE, select the new virtual environment.
 5. You are finished 🎉
+
+### Pre-commit
+This project uses [pre-commit](https://pre-commit.com) hooks for code linting and formatting using 
+[Ruff](https://docs.astral.sh/ruff/).
+
+1. Download the dependencies from the 'dev' dependency group using poetry.
+2. Install the git hook scripts defined in the [configuration file](.pre-commit-config.yaml).
+
+**Powershell/Bash**
+
+    pre-commit install
+
+3. Run the hooks against all the files to check if they work. 
+4. You are finished 🎉 from now on all staged Python files will be linted and formatted at every commit.
