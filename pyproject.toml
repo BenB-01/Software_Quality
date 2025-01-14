@@ -6,7 +6,7 @@ authors = ["BenB-01 <benburkert3@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.14"
 fastapi = {extras = ["standard"], version = "^0.115.6"}
 
 [tool.poetry.group.dev]
@@ -17,6 +17,7 @@ pytest = "^8.3.4"
 pytest-mock = "^3.14.0"
 ruff = "^0.8.4"
 pre-commit = "^4.0.1"
+pyinstaller = "^6.11.1"
 
 [tool.ruff]
 line-length = 100
