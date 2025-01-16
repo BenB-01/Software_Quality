@@ -22,7 +22,7 @@
   "outputs" : [ ],
   "postScript" : "print(\"This is a post-execution script\")",
   "preScript" : "print(\"This is a pre-execution script\")",
-  "toolDescription" : "Testing the integration of a .py file as a tool in RCE",
+  "toolDescription" : "Testing the integration of a FastAPI server as a tool in RCE",
   "toolIconPath" : "",
   "toolIntegrationVersion" : 1,
   "toolIntegratorE-Mail" : "",
