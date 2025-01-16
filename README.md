@@ -52,7 +52,17 @@ Check whether poetry was correctly installed and added to your path. Use poetry 
 This will create a new virtual environment and install the dependencies defined in the `poetry.lock` file.
 3. If you want to contribute to the project run `poetry install --with dev` to install the development dependencies.
 4. In your IDE, select the new virtual environment.
-5. You are finished 🎉
+5. For automatic testing this repository uses [GitHub Actions](https://github.com/features/actions). 
+The pipeline does not use poetry to install the dependencies to avoid having to install poetry in each run. 
+Instead, it uses a simple requirements.txt file. To keep it always up-to-date with the dependencies declared in the 
+pyproject.toml file, we use the poetry plugin `poetry-plugin-export`. To install the plugin run the `self add` 
+command once.
+
+**Powershell/Bash**
+
+    poetry self add poetry-plugin-export
+
+6. You are finished 🎉
 
 ### Pre-commit
 This project uses [pre-commit](https://pre-commit.com) hooks for code linting and formatting using 
@@ -66,4 +76,9 @@ This project uses [pre-commit](https://pre-commit.com) hooks for code linting an
     pre-commit install
 
 3. Run the hooks against all the files to check if they work. 
+
+**Powershell/Bash**
+
+    pre-commit run --all-files
+
 4. You are finished 🎉 from now on all staged Python files will be linted and formatted at every commit.
