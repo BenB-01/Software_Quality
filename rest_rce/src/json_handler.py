@@ -18,3 +18,5 @@ class JsonHandler:
 				json.load(file)
 		except json.JSONDecodeError as e:
 			raise ValueError(f"Invalid JSON syntax in file '{self.file_path}': {e}") from e
+		# return a success message if nothing failed
+		return f"File with path '{self.file_path}' is a valid JSON file."
