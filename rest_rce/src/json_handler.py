@@ -1,12 +1,46 @@
 import json
 import os
+import re
 
+import requests
 from fastapi import HTTPException
 
 
 class JsonHandler:
-	def __init__(self, file_path):
+	def __init__(self, file_path=None):
 		self.file_path = file_path
+		self.possible_keys = self.fetch_config_file_keys()
+
+	@staticmethod
+	def fetch_config_file_keys():
+		"""Get all possible keys from the RCE GitHub repository which can be in the config file."""
+		raw_urls = [
+			'https://raw.githubusercontent.com/rcenvironment/rce/master/de.rcenvironment.core.component.integration/'
+			'src/main/java/de/rcenvironment/core/component/integration/IntegrationConstants.java',
+			'https://raw.githubusercontent.com/rcenvironment/rce/master/de.rcenvironment.core.component.integration/'
+			'src/main/java/de/rcenvironment/core/component/integration/ToolIntegrationConstants.java',
+		]
+		all_keys = []
+		# Fetch the file content from GitHub
+		for url in raw_urls:
+			try:
+				response = requests.get(url)
+				response.raise_for_status()  # Raise an exception for HTTP errors
+				java_code = response.text
+
+				# Find all matches in the Java code
+				pattern = r'public static final String (KEY_\w+) = "(.*?)";'
+				matches = re.findall(pattern, java_code)
+
+				# Extract the constant values into a list
+				key_values = [value for _, value in matches]
+				all_keys.extend(key_values)
+
+			except requests.RequestException as e:
+				print(f'Error fetching file from {url}: {e}')
+				return []
+
+		return all_keys
 
 	def validate_file(self):
 		"""Validate the JSON file at the given path."""
@@ -18,27 +52,31 @@ class JsonHandler:
 
 		try:
 			with open(self.file_path) as file:
-				json.load(file)
+				json_data = json.load(file)
 		except json.JSONDecodeError as e:
 			raise ValueError(f"Invalid JSON syntax in file '{self.file_path}': {e}") from e
 
-		# return a success message if nothing failed
-		return f"File with path '{self.file_path}' is a valid JSON file."
+		invalid_keys = [key for key in json_data if key not in self.possible_keys]
+		if invalid_keys:
+			raise ValueError(
+				f'The file contains invalid keys: {invalid_keys}. '
+				f'Allowed keys are: {self.possible_keys}'
+			)
 
-	def extract_values(self):
+		return json_data
+
+	def extract_values(self, file):
 		"""Extract and validate essential fields from the JSON file."""
-		with open(self.file_path) as f:
-			config_data = json.load(f)
 		# Extract and validate essential fields
-		enable_command_script = config_data.get(
+		enable_command_script = file.get(
 			'enableCommandScriptWindows' if os.name == 'nt' else 'enableCommandScriptLinux', False
 		)
-		command_script = config_data.get(
+		command_script = file.get(
 			'commandScriptWindows' if os.name == 'nt' else 'commandScriptLinux', ''
 		)
-		set_tool_dir = config_data.get('setToolDirAsWorkingDir', False)
-		tool_directory = config_data.get('launchSettings', [])[0].get('toolDirectory', '')
-		inputs = config_data.get('inputs', [])
+		set_tool_dir = file.get('setToolDirAsWorkingDir', False)
+		tool_directory = file.get('launchSettings', [])[0].get('toolDirectory', '')
+		inputs = file.get('inputs', [])
 
 		if not command_script:
 			raise HTTPException(
@@ -47,7 +85,7 @@ class JsonHandler:
 		if not enable_command_script:
 			raise HTTPException(
 				status_code=400,
-				detail='Command script execution is disabled in the configuration file.',
+				detail='Command script execution is disabled in configuration file.',
 			)
 		if not tool_directory:
 			raise HTTPException(
