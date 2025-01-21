@@ -4,18 +4,25 @@ import sys
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from json_handler import JsonHandler
 from pydantic import BaseModel
 from tool_executor import ToolExecutor
 
 # Set up logging
-logging.basicConfig(
-	level=logging.INFO,
-	format='%(levelname)s: %(message)s',
-	datefmt='%Y-%m-%d %H:%M:%S',
-)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter(
+	'%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+log_file_handler = logging.FileHandler('tool_execution.log')
+log_file_handler.setFormatter(formatter)
+logger.addHandler(log_file_handler)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
 
 # Global variable to store tool configuration
 tool_config = {}
@@ -28,14 +35,14 @@ async def lifespan(app: FastAPI):
 
 	if len(sys.argv) < 2:
 		logger.error(
-			'No configuration file provided. Start the API with: `python app.py config.json`'
+			'No configuration file provided. Start the API with: `python app.py <config.json>`'
 		)
 		sys.exit(1)
 
 	config_file_path = sys.argv[1]
 
 	try:
-		handler = JsonHandler(config_file_path)
+		handler = JsonHandler(logger, config_file_path)
 		config_file = handler.validate_file()
 		tool_config.update(config_file)
 		logger.info('Tool configuration loaded successfully.')
@@ -43,11 +50,17 @@ async def lifespan(app: FastAPI):
 		logger.error(e)
 		sys.exit(1)
 
-	yield  # Keep the application running
+	yield
 
 	# Clean up resources
 	tool_config.clear()
 	logger.info('Tool configuration cleared.')
+
+	# Ensure logs are written to the file
+	logger.info('Shutting down the tool. Logs written to tool_execution.log.')
+	for handler in logger.handlers:
+		if isinstance(handler, logging.FileHandler):
+			handler.close()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -57,9 +70,19 @@ class InputValues(BaseModel):
 	inputs: dict
 
 
+@app.middleware('http')
+async def log_requests(request: Request, call_next):
+	"""Log incoming requests and responses."""
+	logger.info(f'Incoming request: {request.method} {request.url}')
+	response = await call_next(request)
+	logger.info(f'Response status: {response.status_code}')
+	return response
+
+
 @app.get('/')
 def read_root():
 	message = f'API is running. Tool configuration loaded. \nConfiguration: {tool_config}'
+	logger.info('Root endpoint accessed.')
 	return message
 
 
@@ -69,6 +92,7 @@ def execute_tool(input_values: InputValues):
 	global tool_config
 
 	if not tool_config:
+		logger.error('Tool configuration is not loaded.')
 		raise HTTPException(status_code=500, detail='Tool configuration is not loaded.')
 
 	try:
@@ -81,9 +105,12 @@ def execute_tool(input_values: InputValues):
 		)
 
 		if return_code != 0:
+			logger.error(f'Tool execution failed with stderr: {stderr}')
 			raise HTTPException(status_code=500, detail=f'Tool execution failed: {stderr}')
 
 		# Return the results
+		cleaned_stdout = stdout.replace('\n', ' | ')
+		logger.info(f'Tool executed successfully with stdout: {cleaned_stdout}')
 		return {
 			'stdout': stdout,
 			'tool_directory': tool_directory,
@@ -91,6 +118,7 @@ def execute_tool(input_values: InputValues):
 		}
 
 	except Exception as e:
+		logger.error(f'Error during tool execution: {e}')
 		raise HTTPException(status_code=500, detail=str(e)) from e
 
 

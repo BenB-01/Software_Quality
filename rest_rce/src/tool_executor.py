@@ -63,7 +63,7 @@ class ToolExecutor:
 	def execute_tool(self, tool_config):
 		"""Execute the tool with the provided inputs."""
 		# Use JsonHandler to extract values
-		json_handler = JsonHandler()
+		json_handler = JsonHandler(self.logger)
 		command_script, set_tool_dir, tool_directory, inputs = json_handler.extract_values(
 			tool_config
 		)
