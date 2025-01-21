@@ -1,7 +1,5 @@
 import logging
 import multiprocessing
-import os
-import subprocess
 import sys
 from contextlib import asynccontextmanager
 
@@ -9,6 +7,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from json_handler import JsonHandler
 from pydantic import BaseModel
+from tool_executor import ToolExecutor
 
 # Set up logging
 logging.basicConfig(
@@ -68,41 +67,20 @@ def read_root():
 def execute_tool(input_values: InputValues):
 	"""Endpoint to execute a tool using the preloaded configuration and provided inputs."""
 	global tool_config
-	start_working_dir = os.getcwd()
-	set_tool_dir, tool_directory = False, ''
 
 	if not tool_config:
 		raise HTTPException(status_code=500, detail='Tool configuration is not loaded.')
 
 	try:
-		# Use JsonHandler to extract values
-		json_handler = JsonHandler()
-		command_script, set_tool_dir, tool_directory, inputs = json_handler.extract_values(
+		# Validate the input values
+		executor = ToolExecutor(tool_config, input_values.inputs, logger)
+		executor.validate_inputs()
+		# Execute the tool with the provided inputs
+		return_code, stdout, stderr, tool_directory, command_script = executor.execute_tool(
 			tool_config
 		)
 
-		# Replace placeholders with input values
-		provided_inputs = input_values.inputs
-		for inp in inputs:
-			endpoint_name = inp.get('endpointName')
-			if endpoint_name not in provided_inputs:
-				raise HTTPException(
-					status_code=400, detail=f'Missing required input: {endpoint_name}'
-				)
-			value = provided_inputs[endpoint_name]
-			command_script = command_script.replace(f'${{in:{endpoint_name}}}', str(value))
-
-		# Change working directory if required
-		if set_tool_dir and tool_directory:
-			os.chdir(tool_directory)
-			logger.info(f'Working directory changed to {tool_directory}.')
-
-		# Execute the tool command
-		process = subprocess.run(command_script, shell=True, capture_output=True, text=True)
-		stdout = process.stdout
-		stderr = process.stderr
-
-		if process.returncode != 0:
+		if return_code != 0:
 			raise HTTPException(status_code=500, detail=f'Tool execution failed: {stderr}')
 
 		# Return the results
@@ -114,11 +92,6 @@ def execute_tool(input_values: InputValues):
 
 	except Exception as e:
 		raise HTTPException(status_code=500, detail=str(e)) from e
-
-	finally:
-		# Restore working directory
-		if set_tool_dir and tool_directory:
-			os.chdir(start_working_dir)
 
 
 if __name__ == '__main__':
