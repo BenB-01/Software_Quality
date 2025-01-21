@@ -39,6 +39,7 @@ class JsonHandler:
 			except requests.RequestException as e:
 				print(f'Error fetching file from {url}: {e}')
 				return []
+
 		return all_keys
 
 	def validate_file(self):
@@ -62,7 +63,7 @@ class JsonHandler:
 				f'Allowed keys are: {self.possible_keys}'
 			)
 
-		return file
+		return json_data
 
 	def extract_values(self, file):
 		"""Extract and validate essential fields from the JSON file."""
