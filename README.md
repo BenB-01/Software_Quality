@@ -20,6 +20,14 @@ Integrate discipline-specific research software tools in RCE using a REST interf
 ## 💡 Usage
 REST-RCE can be used via a command line interface. 
 
+**Powershell/Bash**
+
+    python main.py <path_to_config_file>
+
+After this command, the REST-RCE server will be started and the configuration file will be loaded.
+The server will listen for incoming post requests at http://127.0.0.1:8000/execute-tool/ and execute the tool as 
+defined in the configuration file with the input parameters given in the request.
+
 ## ❓ Detailed setup information 
 
 ### Python

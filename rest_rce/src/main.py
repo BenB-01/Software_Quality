@@ -1,22 +1,28 @@
 import logging
 import multiprocessing
-import os
-import subprocess
 import sys
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from json_handler import JsonHandler
 from pydantic import BaseModel
+from tool_executor import ToolExecutor
 
 # Set up logging
-logging.basicConfig(
-	level=logging.INFO,
-	format='%(levelname)s: %(message)s',
-	datefmt='%Y-%m-%d %H:%M:%S',
-)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter(
+	'%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+log_file_handler = logging.FileHandler('tool_execution.log')
+log_file_handler.setFormatter(formatter)
+logger.addHandler(log_file_handler)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
 
 # Global variable to store tool configuration
 tool_config = {}
@@ -29,14 +35,14 @@ async def lifespan(app: FastAPI):
 
 	if len(sys.argv) < 2:
 		logger.error(
-			'No configuration file provided. Start the API with: `python app.py config.json`'
+			'No configuration file provided. Start the API with: `python app.py <config.json>`'
 		)
 		sys.exit(1)
 
 	config_file_path = sys.argv[1]
 
 	try:
-		handler = JsonHandler(config_file_path)
+		handler = JsonHandler(logger, config_file_path)
 		config_file = handler.validate_file()
 		tool_config.update(config_file)
 		logger.info('Tool configuration loaded successfully.')
@@ -44,11 +50,17 @@ async def lifespan(app: FastAPI):
 		logger.error(e)
 		sys.exit(1)
 
-	yield  # Keep the application running
+	yield
 
 	# Clean up resources
 	tool_config.clear()
 	logger.info('Tool configuration cleared.')
+
+	# Ensure logs are written to the file
+	logger.info('Shutting down the tool. Logs written to tool_execution.log.')
+	for handler in logger.handlers:
+		if isinstance(handler, logging.FileHandler):
+			handler.close()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -58,9 +70,19 @@ class InputValues(BaseModel):
 	inputs: dict
 
 
+@app.middleware('http')
+async def log_requests(request: Request, call_next):
+	"""Log incoming requests and responses."""
+	logger.info(f'Incoming request: {request.method} {request.url}')
+	response = await call_next(request)
+	logger.info(f'Response status: {response.status_code}')
+	return response
+
+
 @app.get('/')
 def read_root():
 	message = f'API is running. Tool configuration loaded. \nConfiguration: {tool_config}'
+	logger.info('Root endpoint accessed.')
 	return message
 
 
@@ -68,44 +90,27 @@ def read_root():
 def execute_tool(input_values: InputValues):
 	"""Endpoint to execute a tool using the preloaded configuration and provided inputs."""
 	global tool_config
-	start_working_dir = os.getcwd()
-	set_tool_dir, tool_directory = False, ''
 
 	if not tool_config:
+		logger.error('Tool configuration is not loaded.')
 		raise HTTPException(status_code=500, detail='Tool configuration is not loaded.')
 
 	try:
-		# Use JsonHandler to extract values
-		json_handler = JsonHandler()
-		command_script, set_tool_dir, tool_directory, inputs = json_handler.extract_values(
+		# Validate the input values
+		executor = ToolExecutor(tool_config, input_values.inputs, logger)
+		executor.validate_inputs()
+		# Execute the tool with the provided inputs
+		return_code, stdout, stderr, tool_directory, command_script = executor.execute_tool(
 			tool_config
 		)
 
-		# Replace placeholders with input values
-		provided_inputs = input_values.inputs
-		for inp in inputs:
-			endpoint_name = inp.get('endpointName')
-			if endpoint_name not in provided_inputs:
-				raise HTTPException(
-					status_code=400, detail=f'Missing required input: {endpoint_name}'
-				)
-			value = provided_inputs[endpoint_name]
-			command_script = command_script.replace(f'${{in:{endpoint_name}}}', str(value))
-
-		# Change working directory if required
-		if set_tool_dir and tool_directory:
-			os.chdir(tool_directory)
-			logger.info(f'Working directory changed to {tool_directory}.')
-
-		# Execute the tool command
-		process = subprocess.run(command_script, shell=True, capture_output=True, text=True)
-		stdout = process.stdout
-		stderr = process.stderr
-
-		if process.returncode != 0:
+		if return_code != 0:
+			logger.error(f'Tool execution failed with stderr: {stderr}')
 			raise HTTPException(status_code=500, detail=f'Tool execution failed: {stderr}')
 
 		# Return the results
+		cleaned_stdout = stdout.replace('\n', ' | ')
+		logger.info(f'Tool executed successfully with stdout: {cleaned_stdout}')
 		return {
 			'stdout': stdout,
 			'tool_directory': tool_directory,
@@ -113,12 +118,8 @@ def execute_tool(input_values: InputValues):
 		}
 
 	except Exception as e:
+		logger.error(f'Error during tool execution: {e}')
 		raise HTTPException(status_code=500, detail=str(e)) from e
-
-	finally:
-		# Restore working directory
-		if set_tool_dir and tool_directory:
-			os.chdir(start_working_dir)
 
 
 if __name__ == '__main__':
