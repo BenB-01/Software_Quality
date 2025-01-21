@@ -60,7 +60,7 @@ class InputValues(BaseModel):
 
 @app.get('/')
 def read_root():
-	message = f'API is running. Tool configuration loaded. \n Configuration: {tool_config}'
+	message = f'API is running. Tool configuration loaded. \nConfiguration: {tool_config}'
 	return message
 
 
