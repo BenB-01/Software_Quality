@@ -1,0 +1,51 @@
+{
+  "commandScriptLinux" : "",
+  "commandScriptWindows" : "root.exe ${in:x}",
+  "thisIsAnInvalidKey": "",
+  "copyToolBehavior" : "once",
+  "deleteWorkingDirectoriesAfterWorkflowExecution" : true,
+  "documentationFilePath" : "",
+  "enableCommandScriptWindows" : true,
+  "groupName" : "Math",
+  "imitationScript" : "",
+  "imitationToolOutputFilename" : "",
+  "inputs" : [ {
+    "endpointFolder" : "",
+    "endpointFileName" : "",
+    "inputExecutionConstraint" : "Required",
+    "inputHandling" : "Single",
+    "endpointDataType" : "Float",
+    "endpointName" : "x"
+  } ],
+  "integrationType" : "common",
+  "isActive" : true,
+  "launchSettings" : [ {
+    "limitInstallationInstancesNumber" : "10",
+    "limitInstallationInstances" : "true",
+    "rootWorkingDirectory" : "",
+    "host" : "RCE",
+    "toolDirectory" : "C:\\Users\\Felix\\SQ_project\\Software_Quality\\rest_rce\\test\\root",
+    "version" : "1"
+  } ],
+  "outputs" : [ {
+    "endpointFileName" : "",
+    "inputHandling" : "-",
+    "endpointDataType" : "Float",
+    "endpointName" : "root",
+    "endpointFolder" : "",
+    "inputExecutionConstraint" : "-"
+  } ],
+  "postScript" : "file = open(\"${dir:tool}/result.txt\",\"r\")\r\nroot = file.read()\r\n${out:root} = float(root)",
+  "preScript" : "",
+  "setToolDirAsWorkingDir" : true,
+  "toolDescription" : "",
+  "toolIconPath" : "root.png",
+  "toolIntegrationVersion" : 1,
+  "toolIntegratorE-Mail" : "",
+  "toolIntegratorName" : "",
+  "toolName" : "Root",
+  "toolProperties" : {
+    "Default" : { }
+  },
+  "uploadIcon" : true
+}
