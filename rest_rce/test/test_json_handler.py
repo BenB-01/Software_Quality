@@ -7,9 +7,9 @@ from fastapi import HTTPException
 
 from rest_rce.src.json_handler import JsonHandler
 
-VALID_JSON_PATH = 'rest_rce\\test\\root\\configuration.json'
-INVALID_JSON_PATH = 'rest_rce\\test\\root\\syntax_invalid_configuration.json'
-INVALID_KEY_JSON_PATH = 'rest_rce\\test\\root\\invalid_key_configuration.json'
+VALID_JSON_PATH = 'rest_rce/test/root/configuration.json'
+INVALID_JSON_PATH = 'rest_rce/test/root/syntax_invalid_configuration.json'
+INVALID_KEY_JSON_PATH = 'rest_rce/test/root/invalid_key_configuration.json'
 
 
 # Pytest fixtures
