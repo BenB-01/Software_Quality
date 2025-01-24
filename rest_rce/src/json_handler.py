@@ -3,6 +3,7 @@ import os
 import re
 
 import requests
+from constants import CS_L, CS_W, ENABLE_CS_L, ENABLE_CS_W, LAUNCH_SETTINGS, OUTPUTS, TOOL_DIR
 from fastapi import HTTPException
 
 
@@ -43,8 +44,15 @@ class JsonHandler:
 
 		return all_keys
 
-	def validate_schema(self, json_data):
+	def read_file(self):
+		"""Read the JSON file at the given path."""
+		with open(self.file_path) as file:
+			json_data = json.load(file)
+		return json_data
+
+	def validate_schema(self):
 		"""Validate if the schema of the JSON file matches the keys defined in the RCE repo."""
+		json_data = self.read_file()
 		invalid_keys = [key for key in json_data if key not in self.possible_keys]
 		if invalid_keys:
 			raise ValueError(
@@ -53,49 +61,53 @@ class JsonHandler:
 			)
 
 	def validate_file(self):
-		"""Validate the JSON file at the given path."""
+		"""Validate the JSON file at the given path, return the JSON data if valid."""
 		if not self.file_path.endswith('.json'):
 			raise ValueError(f'Invalid file type: {self.file_path}. Expected a .json file.')
 		if not os.path.exists(self.file_path):
 			raise FileNotFoundError(f"The file '{self.file_path}' does not exist.")
 		try:
-			with open(self.file_path) as file:
-				json_data = json.load(file)
+			json_data = self.read_file()
 		except json.JSONDecodeError as e:
 			raise ValueError(f"Invalid JSON syntax in file '{self.file_path}': {e}") from e
-		self.validate_schema(json_data)
 
 		return json_data
 
-	def extract_values(self, file):
-		"""Extract and validate essential fields from the JSON file."""
-		# Extract and validate essential fields
-		enable_command_script = file.get(
-			'enableCommandScriptWindows' if os.name == 'nt' else 'enableCommandScriptLinux', False
-		)
-		command_script = file.get(
-			'commandScriptWindows' if os.name == 'nt' else 'commandScriptLinux', ''
-		)
-		set_tool_dir = file.get('setToolDirAsWorkingDir', False)
-		tool_directory = file.get('launchSettings', [])[0].get('toolDirectory', '')
-		inputs = file.get('inputs', [])
+	def validate_essential_fields(self, test_json_data=None):
+		"""Validate if the essential fields are present with an associated value."""
+		# Can either load the JSON data from the file or use other provided data (for testing)
+		json_data = self.read_file() if test_json_data is None else test_json_data
 
-		if not command_script:
-			raise HTTPException(
-				status_code=400, detail='No command script specified in the configuration file.'
-			)
-		if not enable_command_script:
-			raise HTTPException(
-				status_code=400,
-				detail='Command script execution is disabled in configuration file.',
-			)
-		if not tool_directory:
-			raise HTTPException(
-				status_code=400, detail='No tool directory specified in the configuration file.'
-			)
-		if not inputs:
-			raise HTTPException(
-				status_code=400, detail='No inputs specified in the configuration file.'
-			)
+		field_command_script = CS_W if os.name == 'nt' else CS_L
+		field_enable_cs = ENABLE_CS_W if os.name == 'nt' else ENABLE_CS_L
+		key_mapping = {
+			field_command_script: 'Enable Command Script',
+			field_enable_cs: 'Command Script',
+			LAUNCH_SETTINGS: 'Launch Settings',
+			OUTPUTS: 'Outputs',
+		}
 
-		return command_script, set_tool_dir, tool_directory, inputs
+		if field_enable_cs is False:
+			message = (
+				f'Command script execution is disabled in the configuration file. '
+				f'See field {field_enable_cs}.'
+			)
+			raise HTTPException(status_code=400, detail=message)
+
+		# Check if essential fields are present or not an empty string
+		for key, description in key_mapping.items():
+			if key not in json_data or not json_data[key]:
+				message = (
+					f'{description} not specified in the configuration file. '
+					f"Please add the key '{key}'."
+				)
+				raise HTTPException(status_code=400, detail=message)
+
+		# Check if tool directory is in launch settings
+		launch_settings = json_data.get(LAUNCH_SETTINGS, [])
+		if not launch_settings[0].get(TOOL_DIR, False):
+			message = (
+				f'Tool directory not specified in the configuration file. '
+				f"Please add the key '{TOOL_DIR}' to the launch settings."
+			)
+			raise HTTPException(status_code=400, detail=message)

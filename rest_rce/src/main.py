@@ -43,9 +43,13 @@ async def lifespan(app: FastAPI):
 
 	try:
 		handler = JsonHandler(logger, config_file_path)
-		config_file = handler.validate_file()
+		handler.validate_file()
+		handler.validate_schema()
+		handler.validate_essential_fields()
+		config_file = handler.read_file()
 		tool_config.update(config_file)
-		logger.info('Tool configuration loaded successfully.')
+		tool_name = tool_config.get('toolName')
+		logger.info(f'Tool configuration of tool {tool_name} loaded successfully.')
 	except Exception as e:
 		logger.error(e)
 		sys.exit(1)
@@ -100,9 +104,7 @@ def execute_tool(input_values: InputValues):
 		executor = ToolExecutor(tool_config, input_values.inputs, logger)
 		executor.validate_inputs()
 		# Execute the tool with the provided inputs
-		return_code, stdout, stderr, tool_directory, command_script = executor.execute_tool(
-			tool_config
-		)
+		return_code, stdout, stderr, tool_directory, command_script = executor.execute_tool()
 
 		if return_code != 0:
 			logger.error(f'Tool execution failed with stderr: {stderr}')

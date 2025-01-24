@@ -23,7 +23,7 @@
     "limitInstallationInstances" : "true",
     "rootWorkingDirectory" : "",
     "host" : "RCE",
-    "toolDirectory" : "C:\\Users\\Felix\\SQ_project\\Software_Quality\\rest_rce\\test\\root",
+    "toolDirectory" : "C:\\Tools\\Root",
     "version" : "1"
   } ],
   "outputs" : [ {
@@ -35,7 +35,7 @@
     "inputExecutionConstraint" : "-"
   } ],
   "postScript" : "file = open(\"${dir:tool}/result.txt\",\"r\")\r\nroot = file.read()\r\n${out:root} = float(root)",
-  "preScript" : "",
+  "preScript" : "print(This is a pre script.)",
   "setToolDirAsWorkingDir" : true,
   "toolDescription" : "",
   "toolIconPath" : "root.png",
