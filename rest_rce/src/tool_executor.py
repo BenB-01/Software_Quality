@@ -47,6 +47,19 @@ class ToolExecutor:
 		else:
 			raise ValueError(f'Unsupported endpoint data type: {config_datatype}')
 
+	@staticmethod
+	def find_project_directory(start_dir):
+		"""Recursively search for a pyproject.toml file starting from the given directory."""
+		current_dir = start_dir
+		while current_dir:
+			if os.path.exists(os.path.join(current_dir, 'pyproject.toml')):
+				return current_dir
+			parent_dir = os.path.dirname(current_dir)
+			if parent_dir == current_dir:  # Reached the root directory
+				break
+			current_dir = parent_dir
+		return None
+
 	def validate_inputs(self):
 		"""Validate the input values given in the post request with the tool configuration."""
 		provided_inputs = self.inputs
@@ -75,10 +88,10 @@ class ToolExecutor:
 		"""Validate the output variables with the tool configuration."""
 		pass
 
-	def execute_python_script(self, script, tool_directory, output_vars=None):
+	def execute_python_script(self, script, tool_dir, project_dir, output_vars=None):
 		"""Execute a pre-/post-script with placeholders for directories and output variables."""
 		# Replace ${dir:tool} with the tool directory
-		script = script.replace('${dir:tool}', tool_directory)
+		script = script.replace('${dir:tool}', tool_dir)
 
 		output_matches = re.findall(r'\$\{out:(\w+)\}', script)
 		for match in output_matches:
@@ -88,11 +101,56 @@ class ToolExecutor:
 		# Prepare the execution environment
 		local_vars = {'output_vars': output_vars}
 
-		# Execute the dynamically generated script
+		# Track installed dependencies to clean up later
+		installed_dependencies = set()
+
+		original_cwd = os.getcwd()
 		try:
-			exec(script, {}, local_vars)
-		except Exception as e:
-			self.logger.error(f'Error while executing script: {script}. Error: {e}')
+			# Change working directory to project directory
+			os.chdir(project_dir)
+
+			while True:
+				try:
+					# Execute the dynamically generated script
+					exec(script, {}, local_vars)
+					break  # If execution succeeds, exit the loop
+				except ImportError as e:
+					missing_module = str(e).split("'")[1]
+					self.logger.warning(
+						f'Missing dependency detected: {missing_module}. Attempting to install it.'
+					)
+
+					# Add missing dependency
+					try:
+						subprocess.run(['poetry', 'add', missing_module], check=True)
+						installed_dependencies.add(missing_module)
+						self.logger.info(
+							f'Missing dependency {missing_module} successfully installed. '
+							f'Trying to rerun the script.'
+						)
+					except subprocess.CalledProcessError as install_error:
+						self.logger.error(
+							f'Failed to install missing dependency {missing_module}. '
+							f'Error: {install_error}'
+						)
+						raise install_error  # Reraise if installation fails
+				except Exception as e:
+					self.logger.error(f'Error while executing script: {e}')
+					raise e  # Reraise for unexpected errors
+
+			# Cleanup: Remove installed dependencies
+			for dependency in installed_dependencies:
+				try:
+					subprocess.run(['poetry', 'remove', dependency], check=True)
+					self.logger.info(f'Cleaned up dependency: {dependency}')
+				except subprocess.CalledProcessError as cleanup_error:
+					self.logger.warning(
+						f'Failed to clean up dependency {dependency}. Error: {cleanup_error}'
+					)
+
+		finally:
+			# Restore original working directory
+			os.chdir(original_cwd)
 
 		return output_vars
 
@@ -110,17 +168,25 @@ class ToolExecutor:
 		for key, value in self.inputs.items():
 			command_script = command_script.replace(f'${{in:{key}}}', str(value))
 
-		# Change working directory if required
+		# Find the project directory with pyproject.toml
 		start_working_dir = os.getcwd()
-		if set_tool_dir and tool_directory:
-			os.chdir(tool_directory)
-			self.logger.info(f'Working directory changed to {tool_directory}.')
+		project_directory = self.find_project_directory(start_working_dir)
+		if not project_directory:
+			self.logger.error(
+				"Could not find pyproject.toml. Ensure you're in the correct project environment."
+			)
+			raise FileNotFoundError('pyproject.toml not found in any parent directories.')
 
 		# Execute the pre-script if defined
 		output_vars = {}
 		if pre_script:
-			self.logger.info(f'Executing pre-script: {pre_script}')
-			self.execute_python_script(pre_script, tool_directory, output_vars)
+			self.logger.info(f'Executing pre-script: \n{pre_script}')
+			self.execute_python_script(pre_script, tool_directory, project_directory, output_vars)
+
+		# Change working directory if required
+		if set_tool_dir and tool_directory:
+			os.chdir(tool_directory)
+			self.logger.info(f'Working directory changed to {tool_directory}.')
 
 		# Execute the command script
 		self.logger.info(f'Executing command script: {command_script}')
@@ -131,9 +197,10 @@ class ToolExecutor:
 
 		# Execute the post-script if defined
 		if post_script:
-			cleaned_post_script = stdout.replace('\n', ' | ')
-			self.logger.info(f'Executing post-script: {cleaned_post_script}.')
-			output_vars = self.execute_python_script(post_script, tool_directory, output_vars)
+			self.logger.info(f'Executing post-script: \n{post_script}.')
+			output_vars = self.execute_python_script(
+				post_script, tool_directory, project_directory, output_vars
+			)
 			self.logger.info(f'Outputs from Post-script: {output_vars}')
 
 		# Restore working directory
