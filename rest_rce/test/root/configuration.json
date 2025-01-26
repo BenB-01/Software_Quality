@@ -7,7 +7,6 @@
   "enableCommandScriptWindows" : true,
   "groupName" : "Math",
   "imitationScript" : "",
-  "imitationToolOutputFilename" : "",
   "inputs" : [ {
     "endpointFolder" : "",
     "endpointFileName" : "",
@@ -16,8 +15,6 @@
     "endpointDataType" : "Float",
     "endpointName" : "x"
   } ],
-  "integrationType" : "common",
-  "isActive" : true,
   "launchSettings" : [ {
     "limitInstallationInstancesNumber" : "10",
     "limitInstallationInstances" : "true",
@@ -34,8 +31,8 @@
     "endpointFolder" : "",
     "inputExecutionConstraint" : "-"
   } ],
-  "postScript" : "file = open(\"${dir:tool}/result.txt\",\"r\")\r\nroot = file.read()\r\n${out:root} = float(root)",
-  "preScript" : "print(This is a pre script.)",
+  "postScript" : "import emoji\r\nfile = open(\"${dir:tool}/result.txt\",\"r\")\r\nroot = file.read()\r\n${out:root} = float(root)",
+  "preScript" : "print('This is a pre script.')",
   "setToolDirAsWorkingDir" : true,
   "toolDescription" : "",
   "toolIconPath" : "root.png",

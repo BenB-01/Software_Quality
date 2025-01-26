@@ -9,3 +9,7 @@ PRE_S = 'preScript'
 POST_S = 'postScript'
 INPUTS = 'inputs'
 OUTPUTS = 'outputs'
+
+VALID_JSON_PATH = 'rest_rce/test/root/configuration.json'
+INVALID_JSON_PATH = 'rest_rce/test/root/syntax_invalid_configuration.json'
+INVALID_KEY_JSON_PATH = 'rest_rce/test/root/invalid_key_configuration.json'

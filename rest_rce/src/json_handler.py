@@ -3,8 +3,17 @@ import os
 import re
 
 import requests
-from constants import CS_L, CS_W, ENABLE_CS_L, ENABLE_CS_W, LAUNCH_SETTINGS, OUTPUTS, TOOL_DIR
 from fastapi import HTTPException
+
+from rest_rce.src.constants import (
+	CS_L,
+	CS_W,
+	ENABLE_CS_L,
+	ENABLE_CS_W,
+	LAUNCH_SETTINGS,
+	OUTPUTS,
+	TOOL_DIR,
+)
 
 
 class JsonHandler:
@@ -81,33 +90,32 @@ class JsonHandler:
 		field_command_script = CS_W if os.name == 'nt' else CS_L
 		field_enable_cs = ENABLE_CS_W if os.name == 'nt' else ENABLE_CS_L
 		key_mapping = {
-			field_command_script: 'Command Script',
-			field_enable_cs: 'Enable Command Script',
-			LAUNCH_SETTINGS: 'Launch Settings',
+			field_command_script: 'Command script',
+			field_enable_cs: 'Enable command script',
+			LAUNCH_SETTINGS: 'Launch settings',
 			OUTPUTS: 'Outputs',
 		}
-
-		if field_enable_cs is False:
-			message = (
-				f'Command script execution is disabled in the configuration file. '
-				f'See field {field_enable_cs}.'
-			)
-			raise HTTPException(status_code=400, detail=message)
 
 		# Check if essential fields are present or not an empty string
 		for key, description in key_mapping.items():
 			if key not in json_data or not json_data[key]:
-				message = (
-					f'{description} not specified in the configuration file. '
-					f"Please add the key '{key}'."
-				)
+				if key == field_enable_cs:
+					message = (
+						f'Command script execution is disabled in the configuration file. '
+						f'Set field {field_enable_cs} to True.'
+					)
+				else:
+					message = (
+						f'{description} not specified in the configuration file. '
+						f'Please add the key "{key}".'
+					)
 				raise HTTPException(status_code=400, detail=message)
 
 		# Check if tool directory is in launch settings
-		launch_settings = json_data.get(LAUNCH_SETTINGS, [])
-		if not launch_settings[0].get(TOOL_DIR, False):
+		launch_settings = json_data.get(LAUNCH_SETTINGS)
+		if TOOL_DIR not in launch_settings[0] or not launch_settings[0][TOOL_DIR]:
 			message = (
 				f'Tool directory not specified in the configuration file. '
-				f"Please add the key '{TOOL_DIR}' to the launch settings."
+				f"Specify directory with key '{TOOL_DIR}' in launch settings."
 			)
 			raise HTTPException(status_code=400, detail=message)

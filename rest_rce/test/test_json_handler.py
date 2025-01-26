@@ -1,15 +1,18 @@
-import json
 import logging
 from unittest.mock import Mock, patch
 
 import pytest
 from fastapi import HTTPException
 
+from rest_rce.src.constants import (
+	CS_W,
+	ENABLE_CS_W,
+	INVALID_JSON_PATH,
+	INVALID_KEY_JSON_PATH,
+	TOOL_DIR,
+	VALID_JSON_PATH,
+)
 from rest_rce.src.json_handler import JsonHandler
-
-VALID_JSON_PATH = 'rest_rce/test/root/configuration.json'
-INVALID_JSON_PATH = 'rest_rce/test/root/syntax_invalid_configuration.json'
-INVALID_KEY_JSON_PATH = 'rest_rce/test/root/invalid_key_configuration.json'
 
 
 # Pytest fixtures
@@ -55,6 +58,7 @@ def json_essential_fields():
 			}
 		],
 		'inputs': [{'endpointName': 'xName'}],
+		'outputs': [{'endpointName': 'xName'}],
 	}
 	return essential_fields
 
@@ -81,10 +85,8 @@ def test_validate_schema(root_json_handler):
 	- Currently uncomplete list of possible keys\n
 	- Therefore, unknown keys of valid JSON-Files may raise INVALID KEY Errors
 	"""
-	with open(root_json_handler.file_path) as file:
-		json_data = json.load(file)
 	try:
-		root_json_handler.validate_schema(json_data)
+		root_json_handler.validate_schema()
 	except ValueError:
 		pytest.fail("'validate_schema' raised an unexpected value error")
 
@@ -93,10 +95,8 @@ def test_validate_schema_invalid_key_error(root_json_handler):
 	"""Tests error handling of 'validate_schema' method of class JSONHandler,
 	if CLEARLY invalid keys are detected"""
 	root_json_handler.file_path = INVALID_KEY_JSON_PATH
-	with open(root_json_handler.file_path) as file:
-		json_data = json.load(file)
 	with pytest.raises(ValueError, match='The configuration file contains invalid keys:'):
-		root_json_handler.validate_schema(json_data)
+		root_json_handler.validate_schema()
 
 
 # Test 'validate_file' method
@@ -137,104 +137,99 @@ def test_validate_file_invalid_jsonsyntax_error(mock_validate_schema, root_json_
 		root_json_handler.validate_file()
 
 
-# Test 'extract_values' method
+# Test 'validate_essential_fields' method
 # For Linux: Still needs to be tested
 # @patch("os.name", return_value='nt')
 @patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
-def test_windows_extract_values_command_script_disabled_error(
+def test_windows_validate_essential_fields_command_script_disabled_error(
 	mock_validate_schema, root_json_handler, json_essential_fields
 ):
 	"""
-	Tests 'extract_values' method of class JSONHandler on Windows operating system,
-	if the command script is not enabled.\n
+	Tests 'validate_essential_fields' method of class JSONHandler on Windows operating
+	system, if the command script is not enabled.\n
 	Tests the following cases:\n
 	- 'enableCommandScriptWindows' is set to False\n
 	- 'enableCommandScriptWindows' key is not in json file
 	"""
+	assert ENABLE_CS_W in json_essential_fields  # Ensure key exists
+	print(ENABLE_CS_W in json_essential_fields)
 	root_json_handler.validate_file()
-	with pytest.raises(
-		HTTPException, match='Command script execution is disabled in configuration file.'
-	):
+	message = (
+		f'400: Command script execution is disabled in the configuration file. '
+		f'Set field {ENABLE_CS_W} to True'
+	)
+	with pytest.raises(HTTPException, match=message):
 		json_essential_fields.__setitem__('enableCommandScriptWindows', False)
-		root_json_handler.extract_values(json_essential_fields)
-	with pytest.raises(
-		HTTPException, match='Command script execution is disabled in configuration file.'
-	):
+		root_json_handler.validate_essential_fields(json_essential_fields)
+	with pytest.raises(HTTPException, match=message):
 		del json_essential_fields['enableCommandScriptWindows']
-		root_json_handler.extract_values(json_essential_fields)
+		root_json_handler.validate_essential_fields(json_essential_fields)
 
 
 @patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
-def test_windows_extract_values_command_script_missing_error(
+def test_windows_validate_essential_fields_command_script_missing_error(
 	mock_validate_schema, root_json_handler, json_essential_fields
 ):
-	"""Tests 'extract_values' method of class JSONHandler on Windows operating system,
-	if the command script is missing.\n Tests the following cases:\n
+	"""Tests 'validate_essential_fields' method of class JSONHandler on Windows operating
+	system, if the command script is missing.\n Tests the following cases:\n
 	- 'commandScriptWindows' is set to False\n
-	- 'enableCommandScriptWindows' key is not in json file
+	- 'commandScriptWindows' key is not in json file
 	"""
 	root_json_handler.validate_file()
-	with pytest.raises(
-		HTTPException, match='No command script specified in the configuration file.'
-	):
+	message = (
+		f'Command script not specified in the configuration file. ' f'Please add the key "{CS_W}".'
+	)
+	with pytest.raises(HTTPException, match=message):
 		json_essential_fields.__setitem__('commandScriptWindows', '')
-		root_json_handler.extract_values(json_essential_fields)
-	with pytest.raises(
-		HTTPException, match='No command script specified in the configuration file.'
-	):
+		root_json_handler.validate_essential_fields(json_essential_fields)
+	with pytest.raises(HTTPException, match=message):
 		del json_essential_fields['commandScriptWindows']
-		root_json_handler.extract_values(json_essential_fields)
+		root_json_handler.validate_essential_fields(json_essential_fields)
 
 
 @patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
-def test_extract_values_set_tool_dir(
+def test_windows_validate_essential_fields_tool_dir_missing_error(
 	mock_validate_schema, root_json_handler, json_essential_fields
 ):
-	"""Tests 'extract_values' method of class JSONHandler,
-	possible settings of 'setToolDirAsWorkingDir'.\n Tests the following cases:\n
-	- 'setToolDirAsWorkingDir' is set to True\n
-	- 'setToolDirAsWorkingDir' is set to False\n
-	- 'setToolDirAsWorkingDir' key is not in json file --> will be set to False
-	"""
-	root_json_handler.validate_file()
-	json_essential_fields.__setitem__('setToolDirAsWorkingDir', True)
-	assert root_json_handler.extract_values(json_essential_fields)[1]
-	json_essential_fields.__setitem__('setToolDirAsWorkingDir', False)
-	assert not root_json_handler.extract_values(json_essential_fields)[1]
-	del json_essential_fields['setToolDirAsWorkingDir']
-	assert not root_json_handler.extract_values(json_essential_fields)[1]
-
-
-# 'extract_values' throws not-yet-handled error if 'launchSettings' key is missing
-@patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
-def test_windows_extract_values_tool_dir_missing_error(
-	mock_validate_schema, root_json_handler, json_essential_fields
-):
-	"""Tests 'extract_values' method of class JSONHandler,
+	"""Tests 'validate_essential_fields' method of class JSONHandler,
 	if tool directory is missing.\n Tests the following cases:\n
-	- 'toolDirectory' key is missing (Not in 'launchSettings', 'launchSettings' empty)\n
-	- 'toolDirectory' key is missing (Not in 'launchSettings', 'launchSettings' not empty)\n
-	- 'toolDirectory' key is missing ('launchSettings' key is missing)\n
 	- 'toolDirectory' is set to ''\n
+	- 'toolDirectory' key is missing \n
 	"""
 	root_json_handler.validate_file()
-	with pytest.raises(
-		HTTPException, match='No tool directory specified in the configuration file.'
-	):
+	message = (
+		f'Tool directory not specified in the configuration file. '
+		f"Specify directory with key '{TOOL_DIR}' in launch settings."
+	)
+	with pytest.raises(HTTPException, match=message):
 		json_essential_fields.get('launchSettings')[0].__setitem__('toolDirectory', '')
-		root_json_handler.extract_values(json_essential_fields)
-	with pytest.raises(
-		HTTPException, match='No tool directory specified in the configuration file.'
-	):
+		root_json_handler.validate_essential_fields(json_essential_fields)
+	with pytest.raises(HTTPException, match=message):
 		del json_essential_fields.get('launchSettings')[0]['toolDirectory']
-		root_json_handler.extract_values(json_essential_fields)
-	with pytest.raises(
-		HTTPException, match='No tool directory specified in the configuration file.'
-	):
-		json_essential_fields.get('launchSettings')[0]['otherKey'] = 'randomString'
-		root_json_handler.extract_values(json_essential_fields)
-	with pytest.raises(
-		HTTPException, match='No tool directory specified in the configuration file.'
-	):
-		del json_essential_fields['launchSettings']
-		root_json_handler.extract_values(json_essential_fields)
+		root_json_handler.validate_essential_fields(json_essential_fields)
+
+
+@patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
+def test_windows_validate_essential_fields_launch_settings_missing_error(
+	mock_validate_schema, root_json_handler, json_essential_fields
+):
+	"""Tests 'validate_essential_fields' method of class JSONHandler,
+	if launch settings are missing.\n Tests the following cases:\n
+	- 'launchSettings' key is missing \n
+	- 'launchSettings' is set to ''\n
+	- 'launchSettings' is set to []\n
+	"""
+	pass
+
+
+@patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
+def test_validate_essential_fields_outputs_missing_error(
+	mock_validate_schema, root_json_handler, json_essential_fields
+):
+	"""Tests 'validate_essential_fields' method of class JSONHandler,
+	possible settings of 'outputs'.\n Tests the following cases:\n
+	- 'outputs' key is missing \n
+	- 'outputs' is set to ''\n
+	- 'outputs' is set to []\n
+	"""
+	pass
