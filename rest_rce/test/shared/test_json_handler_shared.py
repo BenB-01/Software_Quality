@@ -29,6 +29,20 @@ def root_json_handler():
 	yield JsonHandler(main_logger, VALID_JSON_PATH)
 
 
+# Pytest fixtures
+@pytest.fixture
+def json_essential_fields():
+	essential_fields = {
+		'enableCommandScriptWindows': True,
+		'commandScriptWindows': 'xyz',
+		'setToolDirAsWorkingDir': False,
+		'launchSettings': [{'toolDirectory': 'xyz'}],
+		'inputs': [{'endpointName': 'xName'}],
+		'outputs': [{'endpointName': 'xName'}],
+	}
+	return essential_fields
+
+
 # Tests that can be done in both operating systems
 # Test pyTest fixtures
 def test_json_fixture(root_json_handler):
