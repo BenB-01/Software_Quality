@@ -36,6 +36,7 @@ def json_essential_fields():
 		'enableCommandScriptWindows': True,
 		'enableCommandScriptLinux': True,
 		'commandScriptWindows': 'xyz',
+		'commandScriptLinux': 'xyz',
 		'setToolDirAsWorkingDir': False,
 		'launchSettings': [{'toolDirectory': 'xyz'}],
 		'inputs': [{'endpointName': 'xName'}],
