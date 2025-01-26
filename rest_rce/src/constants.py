@@ -1,5 +1,5 @@
-CS_W = 'CommandScriptWindows'
-CS_L = 'CommandScriptLinux'
+CS_W = 'commandScriptWindows'
+CS_L = 'commandScriptLinux'
 ENABLE_CS_W = 'enableCommandScriptWindows'
 ENABLE_CS_L = 'enableCommandScriptLinux'
 SET_AS_WORKING_DIR = 'setToolDirAsWorkingDir'

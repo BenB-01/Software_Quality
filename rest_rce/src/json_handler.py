@@ -81,8 +81,8 @@ class JsonHandler:
 		field_command_script = CS_W if os.name == 'nt' else CS_L
 		field_enable_cs = ENABLE_CS_W if os.name == 'nt' else ENABLE_CS_L
 		key_mapping = {
-			field_command_script: 'Enable Command Script',
-			field_enable_cs: 'Command Script',
+			field_command_script: 'Command Script',
+			field_enable_cs: 'Enable Command Script',
 			LAUNCH_SETTINGS: 'Launch Settings',
 			OUTPUTS: 'Outputs',
 		}

@@ -104,7 +104,9 @@ def execute_tool(input_values: InputValues):
 		executor = ToolExecutor(tool_config, input_values.inputs, logger)
 		executor.validate_inputs()
 		# Execute the tool with the provided inputs
-		return_code, stdout, stderr, tool_directory, command_script = executor.execute_tool()
+		return_code, stdout, stderr, tool_directory, command_script, output_vars = (
+			executor.execute_tool()
+		)
 
 		if return_code != 0:
 			logger.error(f'Tool execution failed with stderr: {stderr}')
@@ -117,6 +119,7 @@ def execute_tool(input_values: InputValues):
 			'stdout': stdout,
 			'tool_directory': tool_directory,
 			'command': command_script,
+			'output_variables': output_vars,
 		}
 
 	except Exception as e:
