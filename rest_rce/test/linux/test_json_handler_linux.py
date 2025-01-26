@@ -12,8 +12,8 @@ from rest_rce.src.main import set_up_logger
 @pytest.fixture
 def json_essential_fields():
 	essential_fields = {
-		'enableCommandScriptWindows': True,
-		'commandScriptWindows': 'xyz',
+		'enableCommandScriptLinux': True,
+		'commandScriptLinux': 'xyz',
 		'setToolDirAsWorkingDir': False,
 		'launchSettings': [{'toolDirectory': 'xyz'}],
 		'inputs': [{'endpointName': 'xName'}],

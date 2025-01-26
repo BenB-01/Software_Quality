@@ -34,6 +34,7 @@ def root_json_handler():
 def json_essential_fields():
 	essential_fields = {
 		'enableCommandScriptWindows': True,
+		'enableCommandScriptLinux': True,
 		'commandScriptWindows': 'xyz',
 		'setToolDirAsWorkingDir': False,
 		'launchSettings': [{'toolDirectory': 'xyz'}],
@@ -97,7 +98,6 @@ def test_validate_file_invalid_filetype_error(mock_validate_schema, root_json_ha
 		root_json_handler.validate_file()
 
 
-@patch('os.path.exists', return_value=False)
 @patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
 def test_validate_file_file_not_found_error(
 	mock_validate_schema, mock_path_exists, root_json_handler
