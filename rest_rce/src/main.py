@@ -5,24 +5,31 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from json_handler import JsonHandler
 from pydantic import BaseModel
-from tool_executor import ToolExecutor
 
-# Set up logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter(
-	'%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
-)
+from rest_rce.src.json_handler import JsonHandler
+from rest_rce.src.tool_executor import ToolExecutor
 
-log_file_handler = logging.FileHandler('tool_execution.log')
-log_file_handler.setFormatter(formatter)
-logger.addHandler(log_file_handler)
 
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+def set_up_logger():
+	logger = logging.getLogger(__name__)
+	logger.setLevel(logging.INFO)
+	formatter = logging.Formatter(
+		'%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+	)
+
+	log_file_handler = logging.FileHandler('tool_execution.log')
+	log_file_handler.setFormatter(formatter)
+	logger.addHandler(log_file_handler)
+
+	console_handler = logging.StreamHandler()
+	console_handler.setFormatter(formatter)
+	logger.addHandler(console_handler)
+
+	return logger
+
+
+logger = set_up_logger()
 
 # Global variable to store tool configuration
 tool_config = {}

@@ -3,11 +3,14 @@ name: Run Pytest
 on:
   push:
     branches:
-      - main
+      - testing
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
@@ -21,8 +24,15 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt 
+          pip install -r requirements.txt
 
-      - name: Run tests
-        run: |
-          pytest
+      - name: Run shared tests
+        run: pytest rest_rce/test/shared/
+
+      - name: Run Linux tests
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: pytest rest_rce/test/linux/
+
+      - name: Run Windows tests
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: pytest rest_rce/test/windows/

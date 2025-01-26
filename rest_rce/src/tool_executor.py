@@ -2,7 +2,7 @@ import os
 import re
 import subprocess
 
-from constants import (
+from rest_rce.src.constants import (
 	CS_L,
 	CS_W,
 	LAUNCH_SETTINGS,
