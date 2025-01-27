@@ -10,6 +10,7 @@ from rest_rce.src.constants import (
 	CS_W,
 	ENABLE_CS_L,
 	ENABLE_CS_W,
+	INPUTS,
 	LAUNCH_SETTINGS,
 	OUTPUTS,
 	TOOL_DIR,
@@ -94,6 +95,7 @@ class JsonHandler:
 			field_enable_cs: 'Enable command script',
 			LAUNCH_SETTINGS: 'Launch settings',
 			OUTPUTS: 'Outputs',
+			INPUTS: 'Inputs',
 		}
 
 		# Check if essential fields are present or not an empty string

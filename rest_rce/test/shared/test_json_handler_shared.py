@@ -143,6 +143,20 @@ def test_validate_essential_fields_tool_dir_missing_error(
 
 
 @patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
+def test_validate_essential_fields_inputs_missing_error(
+	mock_validate_schema, root_json_handler, json_essential_fields
+):
+	"""Tests 'validate_essential_fields' method of class JSONHandler,
+	if inputs are missing.\n Tests the following cases:\n
+	- 'inputs' key is missing \n
+	- 'inputs' is set to ''\n
+	- 'inputs' is set to []\n
+	"""
+	# still needs to be implemented
+	pass
+
+
+@patch('rest_rce.src.json_handler.JsonHandler.validate_schema', return_value=None)
 def test_validate_essential_fields_launch_settings_missing_error(
 	mock_validate_schema, root_json_handler, json_essential_fields
 ):
