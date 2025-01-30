@@ -121,9 +121,9 @@ email-validator==2.2.0 ; python_version >= "3.11" and python_version < "3.14" \
 fastapi-cli[standard]==0.0.7 ; python_version >= "3.11" and python_version < "3.14" \
     --hash=sha256:02b3b65956f526412515907a0793c9094abd4bfb5457b389f645b0ea6ba3605e \
     --hash=sha256:d549368ff584b2804336c61f192d86ddea080c11255f375959627911944804f4
-fastapi[standard]==0.115.7 ; python_version >= "3.11" and python_version < "3.14" \
-    --hash=sha256:0f106da6c01d88a6786b3248fb4d7a940d071f6f488488898ad5d354b25ed015 \
-    --hash=sha256:eb6a8c8bf7f26009e8147111ff15b5177a0e19bb4a45bc3486ab14804539d21e
+fastapi[standard]==0.115.8 ; python_version >= "3.11" and python_version < "3.14" \
+    --hash=sha256:0ce9111231720190473e222cdf0f07f7206ad7e53ea02beb1d2dc36e2f0741e9 \
+    --hash=sha256:753a96dd7e036b34eeef8babdfcfe3f28ff79648f86551eb36bfc1b0bf4a8cbf
 filelock==3.17.0 ; python_version >= "3.11" and python_version < "3.14" \
     --hash=sha256:533dc2f7ba78dc2f0f531fc6c4940addf7b70a481e269a5a3b93be94ffbe8338 \
     --hash=sha256:ee4e77401ef576ebb38cd7f13b9b28893194acc20a8e68e18730ba9c0e54660e
@@ -382,6 +382,9 @@ pydantic==2.10.6 ; python_version >= "3.11" and python_version < "3.14" \
 pygments==2.19.1 ; python_version >= "3.11" and python_version < "3.14" \
     --hash=sha256:61c16d2a8576dc0649d9f39e089b5f02bcd27fba10d8fb4dcc28173f7a45151f \
     --hash=sha256:9ea1544ad55cecf4b8242fab6dd35a93bbce657034b0611ee383099054ab6d8c
+pytest-asyncio==0.25.3 ; python_version >= "3.11" and python_version < "3.14" \
+    --hash=sha256:9e89518e0f9bd08928f97a3482fdc4e244df17529460bc038291ccaf8f85c7c3 \
+    --hash=sha256:fc1da2cf9f125ada7e710b4ddad05518d4cee187ae9412e9ac9271003497f07a
 pytest-mock==3.14.0 ; python_version >= "3.11" and python_version < "3.14" \
     --hash=sha256:0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f \
     --hash=sha256:2719255a1efeceadbc056d6bf3df3d1c5015530fb40cf347c0f9afac88410bd0

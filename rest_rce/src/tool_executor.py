@@ -184,13 +184,13 @@ class ToolExecutor:
 			self.execute_python_script(pre_script, tool_directory, project_directory, output_vars)
 
 		# Change working directory if required
-		if set_tool_dir and tool_directory:
-			os.chdir(tool_directory)
-			self.logger.info(f'Working directory changed to {tool_directory}.')
+		tool_directory = tool_directory if set_tool_dir and tool_directory else start_working_dir
 
 		# Execute the command script
 		self.logger.info(f'Executing command script: {command_script}')
-		process = subprocess.run(command_script, shell=True, capture_output=True, text=True)
+		process = subprocess.run(
+			command_script, shell=True, capture_output=True, text=True, cwd=tool_directory
+		)
 		stdout = process.stdout
 		stderr = process.stderr
 		return_code = process.returncode
