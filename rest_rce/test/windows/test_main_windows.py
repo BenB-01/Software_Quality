@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 from rest_rce.src.main import app, tool_config
 
@@ -81,12 +82,14 @@ async def test_parallel_tool_execution(mock_tool_config):
 		{'command': 'root.exe 64', 'output_variables': {'root': 8.0}},
 	]
 
-	async def send_request(data):
-		response = client.post('/execute-tool/', json=data)
+	async def send_request(client, data):
+		response = await client.post('/execute-tool/', json=data)
 		return response
 
-	# Run all requests parallel
-	responses = await asyncio.gather(*[send_request(data) for data in test_inputs])
+	# Create an async client for parallel requests
+	async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as ac:
+		tasks = [send_request(ac, data) for data in test_inputs]
+		responses = await asyncio.gather(*tasks)
 
 	# Verify responses
 	for response, expected_output in zip(responses, expected_outputs):

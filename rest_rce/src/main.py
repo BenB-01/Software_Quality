@@ -1,7 +1,9 @@
 import logging
 import multiprocessing
 import sys
+import uuid
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -10,20 +12,35 @@ from pydantic import BaseModel
 from rest_rce.src.json_handler import JsonHandler
 from rest_rce.src.tool_executor import ToolExecutor
 
+# Context variable to store request ID
+request_id_var: ContextVar[str] = ContextVar('request_id', default='')
+
 
 def set_up_logger():
 	logger = logging.getLogger(__name__)
 	logger.setLevel(logging.INFO)
 	formatter = logging.Formatter(
-		'%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+		'%(asctime)s - %(levelname)s - [Request ID: %(request_id)s] - %(message)s',
+		datefmt='%Y-%m-%d %H:%M:%S',
 	)
+
+	class ContextFilter(logging.Filter):
+		"""Logging filter to add request_id to log records."""
+
+		def filter(self, record):
+			request_id = request_id_var.get()
+			record.request_id = request_id if request_id else 'SYSTEM'
+			return True
 
 	log_file_handler = logging.FileHandler('tool_execution.log')
 	log_file_handler.setFormatter(formatter)
-	logger.addHandler(log_file_handler)
+	log_file_handler.addFilter(ContextFilter())
 
 	console_handler = logging.StreamHandler()
 	console_handler.setFormatter(formatter)
+	console_handler.addFilter(ContextFilter())
+
+	logger.addHandler(log_file_handler)
 	logger.addHandler(console_handler)
 
 	return logger
@@ -83,18 +100,21 @@ class InputValues(BaseModel):
 
 @app.middleware('http')
 async def log_requests(request: Request, call_next):
-	"""Log incoming requests and responses."""
+	"""Middleware to log incoming requests and responses with a unique request ID."""
+	request_id = str(uuid.uuid4().hex[:8])
+	request_id_var.set(request_id)
+
 	logger.info(f'Incoming request: {request.method} {request.url}')
 	response = await call_next(request)
 	logger.info(f'Response status: {response.status_code}')
+
 	return response
 
 
 @app.get('/')
 def read_root():
-	message = f'API is running. Tool configuration loaded. \nConfiguration: {tool_config}'
 	logger.info('Root endpoint accessed.')
-	return message
+	return {'message': 'API is running. Tool configuration loaded.', 'configuration': tool_config}
 
 
 @app.post('/execute-tool/')
