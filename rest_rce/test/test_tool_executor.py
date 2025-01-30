@@ -1,11 +1,11 @@
 import json
-import logging
 import os
 from unittest.mock import Mock, patch
 
 import pytest
 
 from rest_rce.src.json_handler import JsonHandler
+from rest_rce.src.main import set_up_logger
 from rest_rce.src.tool_executor import ToolExecutor
 
 VALID_JSON_PATH = 'rest_rce/test/tools/root/configuration.json'
@@ -21,20 +21,7 @@ def mock_logger():
 
 @pytest.fixture
 def main_logger():
-	# Set up logging
-	logger = logging.getLogger(__name__)
-	logger.setLevel(logging.INFO)
-	formatter = logging.Formatter(
-		'%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
-	)
-
-	log_file_handler = logging.FileHandler('tool_execution.log')
-	log_file_handler.setFormatter(formatter)
-	logger.addHandler(log_file_handler)
-
-	console_handler = logging.StreamHandler()
-	console_handler.setFormatter(formatter)
-	logger.addHandler(console_handler)
+	return set_up_logger()
 
 
 @pytest.fixture
