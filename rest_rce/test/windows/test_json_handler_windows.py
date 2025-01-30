@@ -49,10 +49,10 @@ def test_windows_validate_essential_fields_command_script_disabled_error(
 		f'400: Command script execution is disabled in the configuration file. '
 		f'Set field {ENABLE_CS_W} to True'
 	)
-	with pytest.raises(HTTPException, match=message):
+	with pytest.raises(HTTPException, match=message), patch('os.name', 'nt'):
 		json_essential_fields.__setitem__(ENABLE_CS_W, False)
 		root_json_handler.validate_essential_fields(json_essential_fields)
-	with pytest.raises(HTTPException, match=message):
+	with pytest.raises(HTTPException, match=message), patch('os.name', 'nt'):
 		del json_essential_fields[ENABLE_CS_W]
 		root_json_handler.validate_essential_fields(json_essential_fields)
 
@@ -70,9 +70,9 @@ def test_windows_validate_essential_fields_command_script_missing_error(
 	message = (
 		f'Command script not specified in the configuration file. Please add the key "{CS_W}".'
 	)
-	with pytest.raises(HTTPException, match=message):
+	with pytest.raises(HTTPException, match=message), patch('os.name', 'nt'):
 		json_essential_fields.__setitem__(CS_W, '')
 		root_json_handler.validate_essential_fields(json_essential_fields)
-	with pytest.raises(HTTPException, match=message):
+	with pytest.raises(HTTPException, match=message), patch('os.name', 'nt'):
 		del json_essential_fields[CS_W]
 		root_json_handler.validate_essential_fields(json_essential_fields)
