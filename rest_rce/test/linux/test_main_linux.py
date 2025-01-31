@@ -71,7 +71,7 @@ async def test_parallel_tool_execution_linux(mock_tool_config):
 		expected_outputs.append(
 			{
 				'command': f'./poly.sh {x} {n}',
-				'output_variables': {'fx': 'rest_rce/test/tools/poly/result'},
+				'output_variables': {'fx': 'rest_rce/test/tools/poly//result'},
 				'stdout': stdout_success_msg,
 			}
 		)
