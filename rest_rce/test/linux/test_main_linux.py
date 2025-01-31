@@ -66,7 +66,7 @@ async def test_parallel_tool_execution_linux(mock_tool_config):
 	for lst in inputs:
 		x, n = lst[0], lst[1]
 		res = int(x * n)
-		stdout_success_msg = stdout_template.format(x=x, res=res)
+		stdout_success_msg = stdout_template.format(x=x, n=n, res=res)
 		test_inputs.append({'inputs': {'x': x, 'n': n}})
 		expected_outputs.append(
 			{

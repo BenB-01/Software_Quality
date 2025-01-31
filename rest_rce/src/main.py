@@ -135,6 +135,10 @@ def execute_tool(input_values: InputValues):
 			executor.execute_tool()
 		)
 
+		if return_code == -1:
+			logger.error(f'Execution failed: {stderr}')
+			raise HTTPException(status_code=403, detail=f'Execution failed: {stderr}')
+
 		if return_code != 0:
 			logger.error(f'Tool execution failed with stderr: {stderr}')
 			raise HTTPException(status_code=500, detail=f'Tool execution failed: {stderr}')
