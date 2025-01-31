@@ -35,9 +35,12 @@ class ToolExecutor:
 		elif config_datatype == 'boolean':
 			if not isinstance(value, bool):
 				raise ValueError(f'Expected Boolean, but got {incoming_dtype}: {value}')
-		elif config_datatype in ['file', 'filereference']:
-			if not isinstance(value, str) or not value.endswith(('.txt', '.csv', '.json', '.xml')):
-				raise ValueError(f'Expected File (path string), but got {incoming_dtype}: {value}')
+		elif config_datatype in ['file', 'filereference', 'directory']:
+			if not isinstance(value, str):
+				raise ValueError(f'Expected path string, but got {incoming_dtype}: {value}')
+			file_or_dir_pattern = re.compile(r'^(.*[/\\])?[\w-]+(\.(txt|csv|json|xml))?$')
+			if not file_or_dir_pattern.match(value):
+				raise ValueError(f'Invalid file or directory path: {value}')
 		elif config_datatype in ['array', 'list']:
 			if not isinstance(value, list):
 				raise ValueError(f'Expected Array/List, but got {incoming_dtype}: {value}')
@@ -66,8 +69,8 @@ class ToolExecutor:
 		inputs_config = self.tool_config.get('inputs', [])
 
 		# Check for unexpected inputs
-		expected_input_names = {inp['endpointName'] for inp in inputs_config}
-		unexpected_inputs = [key for key in provided_inputs if key not in expected_input_names]
+		expected_inputs = {inp['endpointName'] for inp in inputs_config}
+		unexpected_inputs = [key for key in provided_inputs if key not in expected_inputs]
 		if len(unexpected_inputs) > 0:
 			raise ValueError(f'Post request containing unexpected inputs: {unexpected_inputs}')
 
@@ -86,7 +89,24 @@ class ToolExecutor:
 
 	def validate_outputs(self, output_vars):
 		"""Validate the output variables with the tool configuration."""
-		pass
+		output_config = self.tool_config.get('outputs', [])
+
+		# Check for unexpected outputs
+		expected_outputs = {out['endpointName'] for out in output_config}
+		unexpected_outputs = [
+			key for key, value in output_vars.items() if key not in expected_outputs
+		]
+		if len(unexpected_outputs) > 0:
+			msg = f'Tool returned outputs not defined in the config file: {unexpected_outputs}'
+			raise ValueError(msg)
+
+		for key, value in output_vars.items():
+			# Check for empty values
+			if value is None:
+				raise ValueError(f'Output value for {key} is empty.')
+			# Validate the data type
+			endpoint_datatype = output_config[0].get('endpointDataType').lower()
+			self.validate_input_datatypes(value, endpoint_datatype)
 
 	def set_execute_permission(self, tool_directory, command_script):
 		"""Ensure that a script file used to execute the tool in Linux has execute permissions."""
@@ -221,6 +241,8 @@ class ToolExecutor:
 			output_vars = self.execute_python_script(
 				post_script, tool_directory, project_directory, output_vars
 			)
+			# Validate outputs with expected outputs from config file
+			self.validate_outputs(output_vars)
 			self.logger.info(f'Outputs from Post-script: {output_vars}')
 
 		# Restore working directory

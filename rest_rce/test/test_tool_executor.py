@@ -225,8 +225,44 @@ def test_validate_inputs_datatype_error(mock_tool_executor, mock_clean_input_int
 		mock_tool_executor.validate_inputs()
 
 
-def test_validate_outputs(mock_tool_executor):
-	pass
+# Test validate_outputs method
+
+
+def test_validate_outputs_unexpected_output(mock_tool_executor):
+	"""Tests 'validate_outputs' when the tool returns an unexpected output variable."""
+	mock_tool_executor.tool_config['outputs'] = [{'endpointName': 'expected_output'}]
+	output_vars = {'unexpected_output': 'some_value'}
+	msg = 'Tool returned unexpected outputs not defined in the config file'
+	with pytest.raises(ValueError, match=msg):
+		mock_tool_executor.validate_outputs(output_vars)
+
+
+def test_validate_outputs_missing_value(mock_tool_executor):
+	"""Tests 'validate_outputs' when an expected output is set to None."""
+	mock_tool_executor.tool_config['outputs'] = [{'endpointName': 'valid_output'}]
+	output_vars = {'valid_output': None}
+	with pytest.raises(ValueError, match='Output value for valid_output is empty.'):
+		mock_tool_executor.validate_outputs(output_vars)
+
+
+def test_validate_outputs_valid(mock_tool_executor):
+	"""Tests 'validate_outputs' with a valid output that matches the configuration."""
+	mock_tool_executor.tool_config['outputs'] = [
+		{'endpointName': 'valid_output', 'endpointDataType': 'String'}
+	]
+	output_vars = {'valid_output': 'test_string'}
+	# Should not raise an exception
+	mock_tool_executor.validate_outputs(output_vars)
+
+
+def test_validate_outputs_invalid_data_type(mock_tool_executor):
+	"""Tests 'validate_outputs' when output data type doesn't match the expected type."""
+	mock_tool_executor.tool_config['outputs'] = [
+		{'endpointName': 'x', 'endpointDataType': 'Integer'}
+	]
+	output_vars = {'x': 'not_an_integer'}
+	with pytest.raises(ValueError, match='Expected Integer, but got str: not_an_integer'):
+		mock_tool_executor.validate_outputs(output_vars)
 
 
 def test_find_project_directory(mock_tool_executor, mock_project_dir):
