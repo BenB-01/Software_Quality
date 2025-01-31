@@ -14,15 +14,16 @@ client = TestClient(app)
 def mock_tool_config():
 	tool_config.update(
 		{
-			'enableCommandScriptWindows': True,
-			'commandScriptWindows': 'root.exe ${in:x}',
+			'enableCommandScriptLinux': True,
+			'commandScriptLinux': './poly.sh ${in:x} ${in:n}',
 			'setToolDirAsWorkingDir': True,
-			'launchSettings': [{'toolDirectory': 'C:\\Tools\\Root'}],
-			'inputs': [{'endpointName': 'x', 'endpointDataType': 'Float'}],
-			'outputs': [{'endpointName': 'root', 'endpointDataType': 'Float'}],
-			'postScript': 'file = open("${dir:tool}/result.txt","r")'
-			'\r\nroot = file.read()'
-			'\r\n${out:root} = float(root)',
+			'launchSettings': [{'toolDirectory': 'rest_rce/test/tools/poly/'}],
+			'inputs': [
+				{'endpointName': 'x', 'endpointDataType': 'Float'},
+				{'endpointName': 'n', 'endpointDataType': 'Float'},
+			],
+			'outputs': [{'endpointName': 'fx', 'endpointDataType': 'FileReference'}],
+			'postScript': '${out:fx} = "${dir:tool}/result"',
 			'preScript': 'import time'
 			'\r\nimport random'
 			'\r\ndelay=random.uniform(1,3)'
@@ -32,13 +33,15 @@ def mock_tool_config():
 	return tool_config
 
 
-def test_execute_tool_windows(mock_tool_config):
-	"""Test execution of the tool in Windows with a single input."""
-	test_input = {'inputs': {'x': 4}}
+def test_execute_tool_linux(mock_tool_config):
+	"""Test execution of the tool in Ubuntu with a single input."""
+	test_input = {'inputs': {'x': 2, 'n': 4}}
+	output_file_path = 'rest_rce/test/tools/poly/result'
+	stdout = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=4\nResult: 16\n'
 	expected_output = {
-		'command': 'root.exe 4',
-		'output_variables': {'root': 2.0},
-		'stdout': 'Calculating square root...' '\nGot input x = 4\nWrote result 2 to file.\n',
+		'command': './poly.sh 2 4',
+		'output_variables': {'fx': output_file_path},
+		'stdout': stdout,
 	}
 
 	# Send a synchronous POST request
@@ -49,23 +52,26 @@ def test_execute_tool_windows(mock_tool_config):
 
 
 @pytest.mark.asyncio
-async def test_parallel_tool_execution_windows(mock_tool_config):
-	"""Test parallel execution of the tool with different inputs."""
+async def test_parallel_tool_execution_linux(mock_tool_config):
+	"""Test parallel execution of the tool in Ubuntu with different inputs."""
 
 	# Define test inputs and expected outputs
-	inputs = [4, 16, 64]
+	inputs = [[2, 2], [2, 3], [2, 4]]
 	test_inputs = []
 	expected_outputs = []
-	stdout_template = 'Calculating square root...\nGot input x = {x}\nWrote result {res} to file.\n'
+	stdout_template = (
+		'Calculating exp\nReceived parameter x={x}\nReceived parameter n={n}\nResult: {res}\n'
+	)
 
-	for x in inputs:
-		res = int(x**0.5)
+	for lst in inputs:
+		x, n = lst[0], lst[1]
+		res = int(x * n)
 		stdout_success_msg = stdout_template.format(x=x, res=res)
-		test_inputs.append({'inputs': {'x': x}})
+		test_inputs.append({'inputs': {'x': x, 'n': n}})
 		expected_outputs.append(
 			{
-				'command': f'root.exe {x}',
-				'output_variables': {'root': res},
+				'command': f'./poly.sh {x} {n}',
+				'output_variables': {'fx': 'rest_rce/test/tools/poly/result'},
 				'stdout': stdout_success_msg,
 			}
 		)
