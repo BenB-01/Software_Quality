@@ -36,7 +36,7 @@ def mock_tool_config():
 def test_execute_tool_linux(mock_tool_config):
 	"""Test execution of the tool in Ubuntu with a single input."""
 	test_input = {'inputs': {'x': 2, 'n': 4}}
-	output_file_path = 'rest_rce/test/tools/poly/result'
+	output_file_path = 'rest_rce/test/tools/poly//result'
 	stdout = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=4\nResult: 16\n'
 	expected_output = {
 		'command': './poly.sh 2 4',
@@ -65,7 +65,7 @@ async def test_parallel_tool_execution_linux(mock_tool_config):
 
 	for lst in inputs:
 		x, n = lst[0], lst[1]
-		res = int(x * n)
+		res = int(x**n)
 		stdout_success_msg = stdout_template.format(x=x, n=n, res=res)
 		test_inputs.append({'inputs': {'x': x, 'n': n}})
 		expected_outputs.append(
