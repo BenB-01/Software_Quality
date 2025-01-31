@@ -88,6 +88,17 @@ class ToolExecutor:
 		"""Validate the output variables with the tool configuration."""
 		pass
 
+	def set_execute_permission(self, tool_directory, command_script):
+		"""Ensure that a script file used to execute the tool in Linux has execute permissions."""
+		script_path = os.path.join(tool_directory, command_script.split()[0])
+		if not os.access(script_path, os.X_OK):
+			self.logger.info(f'No permission to execute: {script_path}. Attempting to fix...')
+			try:
+				os.chmod(script_path, 0o755)
+				self.logger.info(f'Execute permission set successfully for {script_path}')
+			except Exception as e:
+				self.logger.error(f'Failed to set execute permission: {e}')
+
 	def execute_python_script(self, script, tool_dir, project_dir, output_vars=None):
 		"""Execute a pre-/post-script with placeholders for directories and output variables."""
 		# Replace ${dir:tool} with the tool directory
@@ -186,14 +197,23 @@ class ToolExecutor:
 		# Change working directory if required
 		tool_directory = tool_directory if set_tool_dir and tool_directory else start_working_dir
 
+		# Check execute permissions for Linux
+		if os.name != 'nt':
+			self.set_execute_permission(tool_directory, command_script)
+
 		# Execute the command script
 		self.logger.info(f'Executing command script: {command_script}')
-		process = subprocess.run(
-			command_script, shell=True, capture_output=True, text=True, cwd=tool_directory
-		)
-		stdout = process.stdout
-		stderr = process.stderr
-		return_code = process.returncode
+		try:
+			process = subprocess.run(
+				command_script, shell=True, capture_output=True, text=True, cwd=tool_directory
+			)
+			stdout = process.stdout
+			stderr = process.stderr
+			return_code = process.returncode
+		except PermissionError:
+			self.logger.error(f'Permission denied when executing {command_script}')
+			stderr = f'Permission denied: {command_script}'
+			return -1, '', stderr, tool_directory, command_script, {}
 
 		# Execute the post-script if defined
 		if post_script:
