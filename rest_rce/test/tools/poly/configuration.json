@@ -1,0 +1,56 @@
+{
+  "commandScriptLinux" : "",
+  "commandScriptWindows" : "poly.bat ${in:x} ${in:n}",
+  "copyToolBehavior" : "once",
+  "deleteWorkingDirectoriesAfterWorkflowExecution" : true,
+  "deleteWorkingDirectoriesNever" : true,
+  "documentationFilePath" : "",
+  "enableCommandScriptWindows" : true,
+  "groupName" : "Math",
+  "imitationScript" : "",
+  "inputs" : [ {
+    "endpointFolder" : "",
+    "endpointFileName" : "",
+    "endpointDataType" : "Float",
+    "endpointName" : "x",
+    "endpointUsage" : "required"
+  }, {
+    "endpointFileName" : "",
+    "inputHandling" : "Single",
+    "endpointUsage" : "required",
+    "endpointDataType" : "Float",
+    "defaultInputExecutionConstraint" : "Required",
+    "endpointName" : "n",
+    "defaultInputHandling" : "Single",
+    "endpointFolder" : "",
+    "inputExecutionConstraint" : "Required"
+  } ],
+  "launchSettings" : [ {
+    "host" : "RCE",
+    "toolDirectory" : "rest_rce/test/tools/poly/",
+    "limitInstallationInstancesNumber" : "10",
+    "limitInstallationInstances" : "false",
+    "version" : "1.0",
+    "rootWorkingDirectory" : ""
+  } ],
+  "outputs" : [ {
+    "endpointFolder" : "",
+    "endpointFileName" : "",
+    "endpointDataType" : "FileReference",
+    "endpointName" : "fx",
+    "endpointUsage" : "-"
+  } ],
+  "postScript" : "${out:fx} = \"${dir:tool}/result\"",
+  "preScript" : "",
+  "setToolDirAsWorkingDir" : true,
+  "toolDescription" : "",
+  "toolIconPath" : "Polynomial.png",
+  "toolIntegrationVersion" : 1,
+  "toolIntegratorE-Mail" : "mr@math.de",
+  "toolIntegratorName" : "Mr. Math",
+  "toolName" : "Poly",
+  "toolProperties" : {
+    "Default" : { }
+  },
+  "uploadIcon" : true
+}
