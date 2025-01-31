@@ -17,7 +17,7 @@ def mock_tool_config():
 			'enableCommandScriptWindows': True,
 			'commandScriptWindows': 'root.exe ${in:x}',
 			'setToolDirAsWorkingDir': True,
-			'launchSettings': [{'toolDirectory': 'C:\\Tools\\Root'}],
+			'launchSettings': [{'toolDirectory': 'rest_rce/test/tools/root/'}],
 			'inputs': [{'endpointName': 'x', 'endpointDataType': 'Float'}],
 			'outputs': [{'endpointName': 'root', 'endpointDataType': 'Float'}],
 			'postScript': 'file = open("${dir:tool}/result.txt","r")'

@@ -1,8 +1,24 @@
+import pytest
 from fastapi.testclient import TestClient
 
-from rest_rce.src.main import app
+from rest_rce.src.main import app, tool_config
 
 client = TestClient(app)
+
+
+@pytest.fixture
+def mock_tool_config():
+	tool_config.update(
+		{
+			'enableCommandScriptWindows': True,
+			'commandScriptWindows': 'root.exe ${in:x}',
+			'setToolDirAsWorkingDir': True,
+			'launchSettings': [{'toolDirectory': 'rest_rce/test/tools/root/'}],
+			'inputs': [{'endpointName': 'x', 'endpointDataType': 'Float'}],
+			'outputs': [{'endpointName': 'root', 'endpointDataType': 'Float'}],
+		}
+	)
+	return tool_config
 
 
 def test_read_root(mock_tool_config):

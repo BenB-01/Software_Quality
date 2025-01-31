@@ -145,7 +145,8 @@ def execute_tool(input_values: InputValues):
 
 		# Return the results
 		cleaned_stdout = stdout.replace('\n', ' | ')
-		logger.info(f'Tool executed successfully with stdout: {cleaned_stdout}')
+		tool_name = tool_config.get('toolName')
+		logger.info(f'Tool {tool_name} executed successfully with stdout: {cleaned_stdout}')
 		return {
 			'stdout': stdout,
 			'tool_directory': tool_directory,
