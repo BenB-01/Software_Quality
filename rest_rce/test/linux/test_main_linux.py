@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from rest_rce.src.main import app, tool_config
-from rest_rce.test.shared.test_main_shared import assert_output_values
+from rest_rce.src.utils import assert_output_values
 
 client = TestClient(app)
 

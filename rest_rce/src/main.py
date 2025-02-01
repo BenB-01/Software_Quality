@@ -1,4 +1,3 @@
-import argparse
 import asyncio
 import datetime
 import logging
@@ -14,6 +13,7 @@ from pydantic import BaseModel
 
 from rest_rce.src.json_handler import JsonHandler
 from rest_rce.src.tool_executor import ToolExecutor
+from rest_rce.src.utils import parse_arguments, set_up_logger
 
 # Context variable to store request ID
 request_id_var: ContextVar[str] = ContextVar('request_id', default='')
@@ -24,53 +24,8 @@ tool_timeout = None
 request_limit = 10
 execution_status = {}
 
-
-def set_up_logger():
-	logger = logging.getLogger(__name__)
-	logger.setLevel(logging.INFO)
-	formatter = logging.Formatter(
-		'%(asctime)s - %(levelname)s - [Request ID: %(request_id)s] - %(message)s',
-		datefmt='%Y-%m-%d %H:%M:%S',
-	)
-
-	class ContextFilter(logging.Filter):
-		"""Logging filter to add request_id to log records."""
-
-		def filter(self, record):
-			request_id = request_id_var.get()
-			record.request_id = request_id if request_id else 'SYSTEM'
-			return True
-
-	log_file_handler = logging.FileHandler('tool_execution.log')
-	log_file_handler.setFormatter(formatter)
-	log_file_handler.addFilter(ContextFilter())
-
-	console_handler = logging.StreamHandler()
-	console_handler.setFormatter(formatter)
-	console_handler.addFilter(ContextFilter())
-
-	logger.addHandler(log_file_handler)
-	logger.addHandler(console_handler)
-
-	return logger
-
-
-def parse_arguments():
-	"""Parse arguments given via the command line."""
-	parser = argparse.ArgumentParser(description='Process some inputs.')
-	# Required argument config file path
-	parser.add_argument('config_file_path', type=str, help='Path to the config file')
-	# Optional arguments
-	parser.add_argument('-t', '--timeout', type=float, help='Timeout value in min', default=None)
-	parser.add_argument('-r', '--request_limit', type=int, help='Request limit', default=None)
-	args = parser.parse_args()
-	config_file_path = args.config_file_path
-	timeout = args.timeout
-	limit = args.request_limit
-	return config_file_path, timeout, limit
-
-
-logger = set_up_logger()
+# Set up logger
+logger = set_up_logger(request_id_var)
 
 
 @asynccontextmanager

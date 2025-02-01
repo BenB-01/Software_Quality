@@ -8,7 +8,7 @@ Integrate discipline-specific research software tools in RCE using a REST interf
 - 🤖 Automate execution and manage error handling seamlessly
 - 💻 Execute RCE workflows in parallel, improving efficiency
 - 🔍 Monitor and log errors for better diagnosis and troubleshooting
-- 🚀 Scale your RCE tool usage with parallel requests and concurrency support
+- 🚀 Scale your RCE tool usage with parallel requests
 
 ## 🔨 Installation & Setup 
 1. Install [Python 3.11](README.md#python)
@@ -18,7 +18,7 @@ Integrate discipline-specific research software tools in RCE using a REST interf
 5. Install [pre-commit](README.md#pre-commit) hooks
 
 ## 💡 Usage
-REST-RCE can be used via a command line interface. 
+REST-RCE can be used via a command line interface.
 
 **Powershell/Bash**
 
@@ -60,17 +60,7 @@ Check whether poetry was correctly installed and added to your path. Use poetry 
 This will create a new virtual environment and install the dependencies defined in the `poetry.lock` file.
 3. If you want to contribute to the project run `poetry install --with dev` to install the development dependencies.
 4. In your IDE, select the new virtual environment.
-5. For automatic testing this repository uses [GitHub Actions](https://github.com/features/actions). 
-The pipeline does not use poetry to install the dependencies to avoid having to install poetry in each run. 
-Instead, it uses a simple requirements.txt file. To keep it always up-to-date with the dependencies declared in the 
-pyproject.toml file, we use the poetry plugin `poetry-plugin-export`. To install the plugin run the `self add` 
-command once.
-
-**Powershell/Bash**
-
-    poetry self add poetry-plugin-export
-
-6. You are finished 🎉
+5. You are finished 🎉
 
 ### Pre-commit
 This project uses [pre-commit](https://pre-commit.com) hooks for code linting and formatting using 

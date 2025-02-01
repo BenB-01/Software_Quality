@@ -5,10 +5,8 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from rest_rce.src.main import app, tool_config
-from rest_rce.test.shared.test_main_shared import (  # noqa
-	assert_output_values,
-	mock_get_running_processes,
-)
+from rest_rce.src.utils import assert_output_values
+from rest_rce.test.shared.test_main_shared import mock_get_running_processes  # noqa
 
 client = TestClient(app)
 request_limit = 10
