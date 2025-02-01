@@ -154,12 +154,3 @@ def test_execute_tool_exceeds_limit(mock_get_running_processes):
 	response = client.post('/execute-tool/', json={'inputs': {'x': 4}})
 	assert response.status_code == 429
 	assert response.json()['detail'] == 'Request limit reached.'
-
-
-def test_execute_tool_under_limit(mock_get_running_processes):
-	"""Test if execute_tool executes requests when request limit is not reached."""
-	mock_get_running_processes.return_value = ['task1', 'task2']
-	global request_limit
-	request_limit = 3
-	response = client.post('/execute-tool/', json={'inputs': {'x': 4}})
-	assert response.status_code == 200

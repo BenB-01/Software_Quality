@@ -8,6 +8,7 @@ from rest_rce.src.main import app, tool_config
 from rest_rce.test.shared.test_main_shared import assert_output_values
 
 client = TestClient(app)
+request_limit = 10
 
 
 @pytest.fixture
@@ -25,7 +26,7 @@ def mock_tool_config():
 			'\r\n${out:root} = float(root)',
 			'preScript': 'import time'
 			'\r\nimport random'
-			'\r\ndelay=random.uniform(1,3)'
+			'\r\ndelay=random.uniform(1,5)'
 			'\r\ntime.sleep(delay)',
 		}
 	)
@@ -82,3 +83,19 @@ async def test_parallel_tool_execution_windows(mock_tool_config):
 	# Verify responses
 	for response, expected_output in zip(responses, expected_outputs):
 		assert_output_values(response, expected_output)
+
+
+def test_execute_tool_under_limit_windows(mock_get_running_processes, mock_tool_config):
+	"""Test if execute_tool executes requests when request limit is not reached."""
+	mock_get_running_processes.return_value = ['task1', 'task2']
+	stdout_success_msg = 'Calculating square root...\nGot input x = 4\nWrote result 2 to file.\n'
+	expected_output = {
+		'command': 'root.exe 4',
+		'output_variables': {'root': 2},
+		'stdout': stdout_success_msg,
+	}
+	global request_limit
+	request_limit = 3
+	response = client.post('/execute-tool/', json={'inputs': {'x': 4}})
+	assert response.status_code == 200
+	assert_output_values(response, expected_output)
