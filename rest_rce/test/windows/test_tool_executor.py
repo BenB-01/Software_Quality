@@ -275,8 +275,9 @@ def test_execute_python_script_import_error(mock_tool_executor):
 	tool_dir = 'rest_rce/test/tools/root'
 	project_dir = mock_tool_executor.find_project_directory(os.getcwd())
 	script = (
-		'import emoji\r\nfile = open("${dir:tool}/result.txt","r")\r\n'
-		+ 'root = file.read()\r\n${out:root} = float(root)'
+		'import emoji\r\n'
+		+ 'file = open("${dir:tool}/result.txt","r")\r\nroot = file.read()\r\n'
+		+ '${out:root} = float(root)'
 	)
 	output_vars = {'k': 1}
 	# with patch('builtins.exec', side_effect=[ImportError(name="emoji"), None]):
@@ -289,8 +290,9 @@ def test_execute_python_script_import_error_failed_import(mock_tool_executor):
 	tool_dir = 'rest_rce/test/tools/root'
 	project_dir = mock_tool_executor.find_project_directory(os.getcwd())
 	script = (
-		'import ThisIsNotARealModule\r\nfile = open("${dir:tool}/result.txt","r")\r\n'
-		+ 'root = file.read()\r\n${out:root} = float(root)'
+		'import ThisIsNotARealModule\r\n'
+		+ 'file = open("${dir:tool}/result.txt","r")\r\nroot = file.read()\r\n'
+		+ '${out:root} = float(root)'
 	)
 	output_vars = {'k': 1}
 	with pytest.raises(subprocess.CalledProcessError):
