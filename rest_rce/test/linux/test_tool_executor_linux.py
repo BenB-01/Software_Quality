@@ -80,6 +80,6 @@ def test_execute_tool_timeout_not_reached_linux(
 	return_code, stdout, stderr, tool_directory, command_script, output_vars = (
 		mock_tool_executor_timeout_linux.execute_tool()
 	)
-	msg = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=4\nResult: 16\n'
+	msg = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=2\nResult: 4\n'
 	assert return_code == 0
 	assert stdout == msg
