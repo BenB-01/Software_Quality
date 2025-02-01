@@ -4,7 +4,13 @@ from unittest.mock import patch
 import pytest
 
 from rest_rce.src.constants import CS_L, ENABLE_CS_L, ENABLE_CS_W, POST_S, POLY_VAlID_JSON_PATH
+from rest_rce.src.main import set_up_logger
 from rest_rce.src.tool_executor import ToolExecutor
+
+
+@pytest.fixture
+def main_logger():
+	return set_up_logger()
 
 
 @pytest.fixture
