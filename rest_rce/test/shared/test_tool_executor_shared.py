@@ -1,66 +1,43 @@
 import json
 import os
+import re
 import subprocess
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rest_rce.src.constants import CS_W, POST_S, VALID_JSON_PATH, POLY_VAlID_JSON_PATH
-from rest_rce.src.json_handler import JsonHandler
+from rest_rce.src.constants import VALID_JSON_PATH
 from rest_rce.src.main import set_up_logger
 from rest_rce.src.tool_executor import ToolExecutor
 
 
 # Pytest fixtures
 @pytest.fixture
-def mock_logger():
-	return Mock()
-
-
-@pytest.fixture
 def main_logger():
 	return set_up_logger()
 
 
 @pytest.fixture
-def root_json_handler():
-	yield JsonHandler(main_logger, VALID_JSON_PATH)
+def mock_logger():
+	return MagicMock()
 
 
 @pytest.fixture
 def mock_tool_executor(main_logger):
 	with open(VALID_JSON_PATH) as file:
 		configuration = json.load(file)
-	yield ToolExecutor(tool_config=configuration, inputs={'x': 7.7}, logger=main_logger)
+	yield ToolExecutor(tool_config=configuration, inputs={'x': 4}, logger=main_logger)
 
 
 @pytest.fixture
-def mock_tool_executor_timeout(main_logger, mock_logger):
-	with open(POLY_VAlID_JSON_PATH) as file:
-		configuration = json.load(file)
-	configuration[CS_W] = 'poly_timeout.bat ${in:x} ${in:n}'
-	configuration[POST_S] = ''
-	yield ToolExecutor(
-		tool_config=configuration, inputs={'x': 2, 'n': 4}, logger=mock_logger, timeout=0.1
-	)
+def mock_project_dir(tmp_path):
+	project_dir = tmp_path / 'my_project'
+	project_dir.mkdir()
+	(project_dir / 'pyproject.toml').write_text("[tool.poetry]\nname = 'example'")
 
-
-@pytest.fixture()
-def json_essential_fields():
-	essential_fields = {
-		'enableCommandScriptWindows': True,
-		'enableCommandScriptLinux': True,
-		'commandScriptWindows': 'xyz',
-		'commandScriptLinux': 'xyz',
-		'setToolDirAsWorkingDir': False,
-		'launchSettings': [
-			{
-				'toolDirectory': 'xyz',
-			}
-		],
-		'inputs': [{'endpointName': 'xName'}],
-	}
-	return essential_fields
+	sub_dir = project_dir / 'src'
+	sub_dir.mkdir()
+	return sub_dir
 
 
 @pytest.fixture
@@ -81,22 +58,6 @@ def mock_clean_input_int():
 
 
 @pytest.fixture
-def mock_input_int_without_endpointname():
-	broken_input = [
-		{
-			'inputHandling': 'Constant',
-			'endpointFileName': '',
-			'endpointDataType': 'Integer',
-			'defaultInputExecutionConstraint': 'NotRequired',
-			'defaultInputHandling': 'Constant',
-			'inputExecutionConstraint': 'NotRequired',
-			'endpointFolder': '',
-		}
-	]
-	return broken_input
-
-
-@pytest.fixture
 def mock_input_int_without_endpointdatatype():
 	broken_input = [
 		{
@@ -113,62 +74,19 @@ def mock_input_int_without_endpointdatatype():
 
 
 @pytest.fixture
-def mock_project_dir(tmp_path):
-	project_dir = tmp_path / 'my_project'
-	project_dir.mkdir()
-	(project_dir / 'pyproject.toml').write_text("[tool.poetry]\nname = 'example'")
-
-	sub_dir = project_dir / 'src'
-	sub_dir.mkdir()
-	return sub_dir
-
-
-@pytest.fixture
-def mock_script():
-	return "print('This is a pre script.')"
-
-
-# Test 'validate_input_datatypes' method
-@pytest.mark.parametrize(
-	'p_dt_value, p_not_dt_value, p_config_datatype, p_error_string',
-	[
-		('thisIsAString', 1, 'string', 'Expected String, but got'),
-		(1, 'this is not an integer', 'integer', 'Expected Integer, but got'),
-		(
-			1.1,
-			1,
-			'float',
-			'Expected Float, but got',
-		),  # No ValueError raised if float is expected, but int is given
-		(1.1, 'this is not a float', 'float', 'Expected Float, but got'),
-		(True, 12, 'boolean', 'Expected Boolean, but got'),
-		([1, 2, 3], 123, 'list', 'Expected Array/List, but got'),
-		('FileReferenceString.xml', 1.1, 'filereference', 'Expected File'),
-		({'Dict': 'ionary'}, 'this is not a dict', 'map', 'Expected Map'),
-		(1123, 132, 'not a data type', 'Unsupported endpoint data type'),
-	],
-	ids=[
-		'str_expected',
-		'int_expected',
-		'float_expected_int_given',
-		'float_expected_str_given',
-		'bool_expected',
-		'list_expected',
-		'filereference_expected',
-		'dict_expected',
-		'unsupported_endpoint',
-	],
-)
-def test_validate_input_datatypes_string_value(
-	p_dt_value, p_not_dt_value, p_config_datatype, p_error_string, mock_tool_executor
-):
-	if p_config_datatype != 'not a data type':
-		mock_tool_executor.validate_input_datatypes(p_dt_value, p_config_datatype)
-	# Catch case: "float_expected_int_given"
-	if isinstance(p_not_dt_value, int) & (p_config_datatype == 'float'):
-		return True
-	with pytest.raises(ValueError, match=p_error_string):
-		mock_tool_executor.validate_input_datatypes(p_not_dt_value, p_config_datatype)
+def mock_input_int_without_endpointname():
+	broken_input = [
+		{
+			'inputHandling': 'Constant',
+			'endpointFileName': '',
+			'endpointDataType': 'Integer',
+			'defaultInputExecutionConstraint': 'NotRequired',
+			'defaultInputHandling': 'Constant',
+			'inputExecutionConstraint': 'NotRequired',
+			'endpointFolder': '',
+		}
+	]
+	return broken_input
 
 
 # Test 'validate_inputs' method
@@ -239,20 +157,64 @@ def test_validate_inputs_datatype_error(mock_tool_executor, mock_clean_input_int
 		mock_tool_executor.validate_inputs()
 
 
-def test_find_project_directory(mock_tool_executor, mock_project_dir):
-	"""Tests 'find_project_directory' method of class ToolExecutor"""
-	# Test if .pyproject.toml exists
-	project_dir = mock_tool_executor.find_project_directory(mock_project_dir)
-	assert project_dir is not None
-	assert os.path.basename(project_dir) == 'my_project'
-	# Test if .pyproject.toml does not exist
-	with patch('os.path.exists', return_value=False):
-		project_dir = mock_tool_executor.find_project_directory(mock_project_dir)
-		assert project_dir is None
+# Test 'validate_outputs' method
+
+# The following error cases are tested:
+# - The tool returns an unexpected output variable
+# - An expected output is set to None
+# - An expected output has the correct data type like specified in the configuration
+# - An expected output has a different data type than specified in the configuration
+
+
+def test_validate_outputs_unexpected_output(mock_tool_executor):
+	"""Tests 'validate_outputs' when the tool returns an unexpected output variable."""
+	mock_tool_executor.tool_config['outputs'] = [{'endpointName': 'expected_output'}]
+	output_vars = {'unexpected_output': 'some_value'}
+	msg = "Tool returned outputs not defined in the config file: ['unexpected_output']"
+	with pytest.raises(ValueError, match=re.escape(msg)):
+		mock_tool_executor.validate_outputs(output_vars)
+
+
+def test_validate_outputs_missing_value(mock_tool_executor):
+	"""Tests 'validate_outputs' when an expected output is set to None."""
+	mock_tool_executor.tool_config['outputs'] = [{'endpointName': 'valid_output'}]
+	output_vars = {'valid_output': None}
+	with pytest.raises(ValueError, match='Output value for valid_output is empty.'):
+		mock_tool_executor.validate_outputs(output_vars)
+
+
+def test_validate_outputs_valid(mock_tool_executor):
+	"""Tests 'validate_outputs' with a valid output that matches the configuration."""
+	mock_tool_executor.tool_config['outputs'] = [
+		{'endpointName': 'valid_output', 'endpointDataType': 'String'}
+	]
+	output_vars = {'valid_output': 'test_string'}
+	# Should not raise an exception
+	mock_tool_executor.validate_outputs(output_vars)
+
+
+def test_validate_outputs_invalid_data_type(mock_tool_executor):
+	"""Tests 'validate_outputs' when output data type doesn't match the expected type."""
+	mock_tool_executor.tool_config['outputs'] = [
+		{'endpointName': 'x', 'endpointDataType': 'Integer'}
+	]
+	output_vars = {'x': 'not_an_integer'}
+	with pytest.raises(ValueError, match='Expected Integer, but got str: not_an_integer'):
+		mock_tool_executor.validate_outputs(output_vars)
+
+
+# Test 'execute_python_script' method
+
+# The following cases are tested:
+# - Running a simple Python script
+# - Running a Python script with a placeholder for the output variable
+# - Running a Python script with an import error
+# - Running a Python script with an import error that fails to import the module
+# - Running a Python script that raises an error itself
 
 
 def test_execute_python_script(mock_tool_executor, mock_project_dir):
-	"""Tests 'execute_python_script' method of class ToolExecutor"""
+	"""Tests if 'execute_python_script' method can execute simple Python script."""
 	mock_tool_dir = 'rest_rce/test/tools/root'
 	script = "print('This is a pre script.')"
 	mock_tool_executor.execute_python_script(
@@ -261,6 +223,7 @@ def test_execute_python_script(mock_tool_executor, mock_project_dir):
 
 
 def test_execute_python_script_replace_output_placeholder(mock_tool_executor):
+	"""Tests if the output variable placeholder is replaced with the correct value"""
 	tool_dir = 'rest_rce/test/tools/root'
 	project_dir = mock_tool_executor.find_project_directory(os.getcwd())
 	script = (
@@ -276,6 +239,7 @@ def test_execute_python_script_replace_output_placeholder(mock_tool_executor):
 
 
 def test_execute_python_script_import_error(mock_tool_executor):
+	"""Tests 'execute_python_script' method when an import error occurs."""
 	tool_dir = 'rest_rce/test/tools/root'
 	project_dir = mock_tool_executor.find_project_directory(os.getcwd())
 	script = (
@@ -283,14 +247,17 @@ def test_execute_python_script_import_error(mock_tool_executor):
 		+ 'file = open("${dir:tool}/result.txt","r")\r\nroot = file.read()\r\n'
 		+ '${out:root} = float(root)'
 	)
+	mock_tool_executor.logger = MagicMock()
 	output_vars = {'k': 1}
-	# with patch('builtins.exec', side_effect=[ImportError(name="emoji"), None]):
 	mock_tool_executor.execute_python_script(
 		script=script, project_dir=project_dir, tool_dir=tool_dir, output_vars=output_vars
 	)
+	warning_msg = 'Missing dependency detected: emoji. Attempting to install it.'
+	mock_tool_executor.logger.warning.assert_called_with(warning_msg)
 
 
 def test_execute_python_script_import_error_failed_import(mock_tool_executor):
+	"""Tests if the correct error is raised if missing libraries could not be installed."""
 	tool_dir = 'rest_rce/test/tools/root'
 	project_dir = mock_tool_executor.find_project_directory(os.getcwd())
 	script = (
@@ -308,6 +275,7 @@ def test_execute_python_script_import_error_failed_import(mock_tool_executor):
 @patch('os.chdir')
 @patch('subprocess.run')
 def test_execute_script_with_exception(mock_subprocess, mock_chdir, mock_tool_executor):
+	"""Test if the right exception is raised inside a Python script."""
 	script = "raise ValueError('Test error')"
 	tool_dir = '/fake/tool'
 	project_dir = '/fake/project'
@@ -320,50 +288,50 @@ def test_execute_script_with_exception(mock_subprocess, mock_chdir, mock_tool_ex
 	mock_subprocess.assert_not_called()
 
 
-@patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')
-def test_execute_tool(mock_script_execution, mock_tool_executor):
-	with patch('os.name', 'nt'):
-		mock_tool_executor.execute_tool()
-	with (
-		patch('rest_rce.src.tool_executor.ToolExecutor.find_project_directory', return_value=None),
-		pytest.raises(FileNotFoundError),
-	):
-		mock_tool_executor.execute_tool()
+@pytest.mark.parametrize(
+	'p_dt_value, p_not_dt_value, p_config_datatype, p_error_string',
+	[
+		('thisIsAString', 1, 'string', 'Expected String, but got'),
+		(1, 'this is not an integer', 'integer', 'Expected Integer, but got'),
+		(1.1, 1, 'float', 'Expected Float, but got'),  # No ValueError if float expected & int given
+		(1.1, 'this is not a float', 'float', 'Expected Float, but got'),
+		(True, 12, 'boolean', 'Expected Boolean, but got'),
+		([1, 2, 3], 123, 'list', 'Expected Array/List, but got'),
+		('FileReferenceString.xml', 1.1, 'filereference', 'Expected path string, but got'),
+		({'Dict': 'ionary'}, 'this is not a dict', 'map', 'Expected Map'),
+		(1123, 132, 'not a data type', 'Unsupported endpoint data type'),
+	],
+	ids=[
+		'str_expected',
+		'int_expected',
+		'float_expected_int_given',
+		'float_expected_str_given',
+		'bool_expected',
+		'list_expected',
+		'filereference_expected',
+		'dict_expected',
+		'unsupported_endpoint',
+	],
+)
+def test_validate_input_datatypes_string_value(
+	p_dt_value, p_not_dt_value, p_config_datatype, p_error_string, mock_tool_executor
+):
+	if p_config_datatype != 'not a data type':
+		mock_tool_executor.validate_input_datatypes(p_dt_value, p_config_datatype)
+	# Catch case: "float_expected_int_given"
+	if isinstance(p_not_dt_value, int) & (p_config_datatype == 'float'):
+		return True
+	with pytest.raises(ValueError, match=p_error_string):
+		mock_tool_executor.validate_input_datatypes(p_not_dt_value, p_config_datatype)
 
 
-@patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')
-def test_execute_tool_timeout_error(mock_script_execution, mock_tool_executor_timeout):
-	"""Check if the command script is correctly terminated if timeout is reached."""
-	return_code, stdout, stderr, tool_directory, command_script, output_vars = (
-		mock_tool_executor_timeout.execute_tool()
-	)
-	assert return_code == -1
-	assert 'Timeout expired' in stderr
-	timeout = mock_tool_executor_timeout.timeout
-	mock_tool_executor_timeout.logger.error.assert_called_with(
-		f'Timeout of {timeout} minutes expired while executing command script.'
-	)
-
-
-@patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')
-def test_execute_tool_no_timeout(mock_script_execution, mock_tool_executor_timeout):
-	"""Test if the command script is correctly executed if there is no timeout set."""
-	mock_tool_executor_timeout.timeout = None
-	return_code, stdout, stderr, tool_directory, command_script, output_vars = (
-		mock_tool_executor_timeout.execute_tool()
-	)
-	msg = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=4\nResult: 16\n'
-	assert return_code == 0
-	assert stdout.rstrip('\n') == msg.rstrip('\n')
-
-
-@patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')
-def test_execute_tool_timeout_not_reached(mock_script_execution, mock_tool_executor_timeout):
-	"""Test if command script is correctly executed if the timeout value is above execution time."""
-	mock_tool_executor_timeout.timeout = 3
-	return_code, stdout, stderr, tool_directory, command_script, output_vars = (
-		mock_tool_executor_timeout.execute_tool()
-	)
-	msg = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=4\nResult: 16\n'
-	assert return_code == 0
-	assert stdout == msg
+def test_find_project_directory(mock_tool_executor, mock_project_dir):
+	"""Tests 'find_project_directory' method of class ToolExecutor"""
+	# Test if .pyproject.toml exists
+	project_dir = mock_tool_executor.find_project_directory(mock_project_dir)
+	assert project_dir is not None
+	assert os.path.basename(project_dir) == 'my_project'
+	# Test if .pyproject.toml does not exist
+	with patch('os.path.exists', return_value=False):
+		project_dir = mock_tool_executor.find_project_directory(mock_project_dir)
+		assert project_dir is None
