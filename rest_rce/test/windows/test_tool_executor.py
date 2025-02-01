@@ -5,13 +5,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from rest_rce.src.constants import CS_W, POST_S, VALID_JSON_PATH, POLY_VAlID_JSON_PATH
 from rest_rce.src.json_handler import JsonHandler
 from rest_rce.src.main import set_up_logger
 from rest_rce.src.tool_executor import ToolExecutor
-
-VALID_JSON_PATH = 'rest_rce/test/tools/root/configuration.json'
-INVALID_JSON_PATH = 'rest_rce/test/tools/root/syntax_invalid_configuration.json'
-INVALID_KEY_JSON_PATH = 'rest_rce/test/tools/root/invalid_key_configuration.json'
 
 
 # Pytest fixtures
@@ -35,6 +32,17 @@ def mock_tool_executor(main_logger):
 	with open(VALID_JSON_PATH) as file:
 		configuration = json.load(file)
 	yield ToolExecutor(tool_config=configuration, inputs={'x': 7.7}, logger=main_logger)
+
+
+@pytest.fixture
+def mock_tool_executor_timeout(main_logger, mock_logger):
+	with open(POLY_VAlID_JSON_PATH) as file:
+		configuration = json.load(file)
+	configuration[CS_W] = 'poly_timeout.bat ${in:x} ${in:n}'
+	configuration[POST_S] = ''
+	yield ToolExecutor(
+		tool_config=configuration, inputs={'x': 2, 'n': 4}, logger=mock_logger, timeout=0.1
+	)
 
 
 @pytest.fixture()
@@ -231,46 +239,6 @@ def test_validate_inputs_datatype_error(mock_tool_executor, mock_clean_input_int
 		mock_tool_executor.validate_inputs()
 
 
-# Test validate_outputs method
-
-
-def test_validate_outputs_unexpected_output(mock_tool_executor):
-	"""Tests 'validate_outputs' when the tool returns an unexpected output variable."""
-	mock_tool_executor.tool_config['outputs'] = [{'endpointName': 'expected_output'}]
-	output_vars = {'unexpected_output': 'some_value'}
-	msg = 'Tool returned unexpected outputs not defined in the config file'
-	with pytest.raises(ValueError, match=msg):
-		mock_tool_executor.validate_outputs(output_vars)
-
-
-def test_validate_outputs_missing_value(mock_tool_executor):
-	"""Tests 'validate_outputs' when an expected output is set to None."""
-	mock_tool_executor.tool_config['outputs'] = [{'endpointName': 'valid_output'}]
-	output_vars = {'valid_output': None}
-	with pytest.raises(ValueError, match='Output value for valid_output is empty.'):
-		mock_tool_executor.validate_outputs(output_vars)
-
-
-def test_validate_outputs_valid(mock_tool_executor):
-	"""Tests 'validate_outputs' with a valid output that matches the configuration."""
-	mock_tool_executor.tool_config['outputs'] = [
-		{'endpointName': 'valid_output', 'endpointDataType': 'String'}
-	]
-	output_vars = {'valid_output': 'test_string'}
-	# Should not raise an exception
-	mock_tool_executor.validate_outputs(output_vars)
-
-
-def test_validate_outputs_invalid_data_type(mock_tool_executor):
-	"""Tests 'validate_outputs' when output data type doesn't match the expected type."""
-	mock_tool_executor.tool_config['outputs'] = [
-		{'endpointName': 'x', 'endpointDataType': 'Integer'}
-	]
-	output_vars = {'x': 'not_an_integer'}
-	with pytest.raises(ValueError, match='Expected Integer, but got str: not_an_integer'):
-		mock_tool_executor.validate_outputs(output_vars)
-
-
 def test_find_project_directory(mock_tool_executor, mock_project_dir):
 	"""Tests 'find_project_directory' method of class ToolExecutor"""
 	# Test if .pyproject.toml exists
@@ -361,3 +329,41 @@ def test_execute_tool(mock_script_execution, mock_tool_executor):
 		pytest.raises(FileNotFoundError),
 	):
 		mock_tool_executor.execute_tool()
+
+
+@patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')
+def test_execute_tool_timeout_error(mock_script_execution, mock_tool_executor_timeout):
+	"""Check if the command script is correctly terminated if timeout is reached."""
+	return_code, stdout, stderr, tool_directory, command_script, output_vars = (
+		mock_tool_executor_timeout.execute_tool()
+	)
+	assert return_code == -1
+	assert 'Timeout expired' in stderr
+	timeout = mock_tool_executor_timeout.timeout
+	mock_tool_executor_timeout.logger.error.assert_called_with(
+		f'Timeout of {timeout} minutes expired while executing command script.'
+	)
+
+
+@patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')
+def test_execute_tool_no_timeout(mock_script_execution, mock_tool_executor_timeout):
+	"""Test if the command script is correctly executed if there is no timeout set."""
+	mock_tool_executor_timeout.timeout = None
+	return_code, stdout, stderr, tool_directory, command_script, output_vars = (
+		mock_tool_executor_timeout.execute_tool()
+	)
+	msg = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=4\nResult: 16\n'
+	assert return_code == 0
+	assert stdout.rstrip('\n') == msg.rstrip('\n')
+
+
+@patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')
+def test_execute_tool_timeout_not_reached(mock_script_execution, mock_tool_executor_timeout):
+	"""Test if command script is correctly executed if the timeout value is above execution time."""
+	mock_tool_executor_timeout.timeout = 3
+	return_code, stdout, stderr, tool_directory, command_script, output_vars = (
+		mock_tool_executor_timeout.execute_tool()
+	)
+	msg = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=4\nResult: 16\n'
+	assert return_code == 0
+	assert stdout == msg

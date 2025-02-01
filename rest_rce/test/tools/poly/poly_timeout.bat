@@ -1,7 +1,7 @@
 @echo off
 
 :: Add a delay to test the timeout feature
-timeout /t 120 /nobreak >nul
+ping 127.0.0.1 -n 10 >nul 2>&1
 
 :: calculate x^n
 if "%1" == "" GOTO error

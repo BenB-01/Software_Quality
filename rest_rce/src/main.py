@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import datetime
 import logging
@@ -17,6 +18,10 @@ from rest_rce.src.tool_executor import ToolExecutor
 # Context variable to store request ID
 request_id_var: ContextVar[str] = ContextVar('request_id', default='')
 
+# Global variables to store tool configuration
+tool_config = {}
+tool_timeout = None
+request_limit = 10
 execution_status = {}
 
 
@@ -50,26 +55,30 @@ def set_up_logger():
 	return logger
 
 
-logger = set_up_logger()
+def parse_arguments():
+	"""Parse arguments given via the command line."""
+	parser = argparse.ArgumentParser(description='Process some inputs.')
+	# Required argument config file path
+	parser.add_argument('config_file_path', type=str, help='Path to the config file')
+	# Optional arguments
+	parser.add_argument('-t', '--timeout', type=float, help='Timeout value in min', default=None)
+	parser.add_argument('-r', '--request_limit', type=int, help='Request limit', default=None)
+	args = parser.parse_args()
+	config_file_path = args.config_file_path
+	timeout = args.timeout
+	limit = args.request_limit
+	return config_file_path, timeout, limit
 
-# Global variables to store tool configuration
-tool_config = {}
-tool_timeout = None
+
+logger = set_up_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 	"""Initialize the configuration from the JSON file passed via command-line argument."""
-	global tool_config, tool_timeout
+	global tool_config, tool_timeout, request_limit
 
-	if len(sys.argv) < 2:
-		logger.error(
-			'No configuration file provided. Start the API with: `python app.py <config.json>`'
-		)
-		sys.exit(1)
-
-	config_file_path = sys.argv[1]
-	tool_timeout = float(sys.argv[2]) if len(sys.argv) > 2 else None
+	config_file_path, tool_timeout, request_limit = parse_arguments()
 
 	try:
 		handler = JsonHandler(logger, config_file_path)
@@ -82,6 +91,8 @@ async def lifespan(app: FastAPI):
 		logger.info(f'Tool configuration of tool {tool_name} loaded successfully.')
 		if tool_timeout is not None:
 			logger.info(f'Tool timeout set to : {tool_timeout} minutes.')
+		if request_limit is not None:
+			logger.info(f'Request limit set to : {request_limit} parallel processes.')
 	except Exception as e:
 		logger.error(e)
 		sys.exit(1)
@@ -136,11 +147,18 @@ def get_running_processes():
 
 @app.post('/execute-tool/')
 async def execute_tool(input_values: InputValues):
-	global tool_config, tool_timeout
+	global tool_config, tool_timeout, request_limit
+
+	running_processes = get_running_processes()
+	logger.info(f'Number of parallel running processes: {len(running_processes)}.')
+	if request_limit is not None and len(running_processes) >= request_limit:
+		logger.error(f'Post request denied because request limit of {request_limit} is reached.')
+		logger.info("Running processes can be seen at '/running-processes/'.")
+		raise HTTPException(status_code=429, detail='Request limit reached.')
 
 	if not tool_config:
 		logger.error('Tool configuration is not loaded.')
-		raise HTTPException(status_code=500, detail='Tool configuration is not loaded.')
+		raise HTTPException(status_code=400, detail='Tool configuration is not loaded.')
 
 	# Retrieve the request ID from context variable
 	execution_id = request_id_var.get()

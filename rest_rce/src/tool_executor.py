@@ -247,7 +247,7 @@ class ToolExecutor:
 			return_code = process.returncode
 		except subprocess.TimeoutExpired:
 			self.logger.error(
-				f'Timeout of {self.timeout} min expired while executing command script.'
+				f'Timeout of {self.timeout} minutes expired while executing command script.'
 			)
 			return -1, '', f'Timeout expired: {command_script}', tool_directory, command_script, {}
 		except PermissionError:
