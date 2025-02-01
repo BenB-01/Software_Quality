@@ -1,8 +1,5 @@
 #! /bin/sh
 
-# Set a timeout limit
-TIMEOUT=10
-
 USAGE="Usage: poly.sh x [n]"
 
 if [ $# -eq 0 ] || [ $# -gt 2 ]; then
@@ -28,7 +25,8 @@ i=1
 while [ $i -le $n ]
 do
 	result=`expr $result \* $x`
-	i=`expr $i + 1`
+	i=`expr $i + 1
+	sleep 20` # sleep to delay the loop and simulate a long running process
 done
 echo "Result:" $result
 echo $result > result
