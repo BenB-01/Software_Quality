@@ -16,6 +16,3 @@ repos:
     - id: poetry-check
     # Make sure lock file is up-to-date when committing changes
     - id: poetry-lock
-    # Make sure requirements.txt file (used for CI pipeline) is always equal with pyproject.toml
-    - id: poetry-export
-      args: ["--dev", "-f", "requirements.txt", "-o", "requirements.txt"]
