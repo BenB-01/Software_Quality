@@ -5,7 +5,10 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from rest_rce.src.main import app, tool_config
-from rest_rce.test.shared.test_main_shared import assert_output_values
+from rest_rce.test.shared.test_main_shared import (  # noqa
+	assert_output_values,
+	mock_get_running_processes,
+)
 
 client = TestClient(app)
 request_limit = 10
@@ -85,7 +88,7 @@ async def test_parallel_tool_execution_windows(mock_tool_config):
 		assert_output_values(response, expected_output)
 
 
-def test_execute_tool_under_limit_windows(mock_get_running_processes, mock_tool_config):
+def test_execute_tool_under_limit_windows(mock_get_running_processes, mock_tool_config):  # noqa: F811
 	"""Test if execute_tool executes requests when request limit is not reached."""
 	mock_get_running_processes.return_value = ['task1', 'task2']
 	stdout_success_msg = 'Calculating square root...\nGot input x = 4\nWrote result 2 to file.\n'
