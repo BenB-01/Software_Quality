@@ -14,10 +14,11 @@ from rest_rce.src.constants import (
 
 
 class ToolExecutor:
-	def __init__(self, tool_config, inputs, logger):
+	def __init__(self, tool_config, inputs, logger, timeout=None):
 		self.tool_config = tool_config
 		self.inputs = inputs
 		self.logger = logger
+		self.timeout = timeout
 
 	@staticmethod
 	def validate_input_datatypes(value, config_datatype):
@@ -35,9 +36,12 @@ class ToolExecutor:
 		elif config_datatype == 'boolean':
 			if not isinstance(value, bool):
 				raise ValueError(f'Expected Boolean, but got {incoming_dtype}: {value}')
-		elif config_datatype in ['file', 'filereference']:
-			if not isinstance(value, str) or not value.endswith(('.txt', '.csv', '.json', '.xml')):
-				raise ValueError(f'Expected File (path string), but got {incoming_dtype}: {value}')
+		elif config_datatype in ['file', 'filereference', 'directory']:
+			if not isinstance(value, str):
+				raise ValueError(f'Expected path string, but got {incoming_dtype}: {value}')
+			file_or_dir_pattern = re.compile(r'^(.*[/\\])?[\w-]+(\.(txt|csv|json|xml))?$')
+			if not file_or_dir_pattern.match(value):
+				raise ValueError(f'Invalid file or directory path: {value}')
 		elif config_datatype in ['array', 'list']:
 			if not isinstance(value, list):
 				raise ValueError(f'Expected Array/List, but got {incoming_dtype}: {value}')
@@ -66,8 +70,8 @@ class ToolExecutor:
 		inputs_config = self.tool_config.get('inputs', [])
 
 		# Check for unexpected inputs
-		expected_input_names = {inp['endpointName'] for inp in inputs_config}
-		unexpected_inputs = [key for key in provided_inputs if key not in expected_input_names]
+		expected_inputs = {inp['endpointName'] for inp in inputs_config}
+		unexpected_inputs = [key for key in provided_inputs if key not in expected_inputs]
 		if len(unexpected_inputs) > 0:
 			raise ValueError(f'Post request containing unexpected inputs: {unexpected_inputs}')
 
@@ -86,7 +90,24 @@ class ToolExecutor:
 
 	def validate_outputs(self, output_vars):
 		"""Validate the output variables with the tool configuration."""
-		pass
+		output_config = self.tool_config.get('outputs', [])
+
+		# Check for unexpected outputs
+		expected_outputs = {out['endpointName'] for out in output_config}
+		unexpected_outputs = [
+			key for key, value in output_vars.items() if key not in expected_outputs
+		]
+		if len(unexpected_outputs) > 0:
+			msg = f'Tool returned outputs not defined in the config file: {unexpected_outputs}'
+			raise ValueError(msg)
+
+		for key, value in output_vars.items():
+			# Check for empty values
+			if value is None:
+				raise ValueError(f'Output value for {key} is empty.')
+			# Validate the data type
+			endpoint_datatype = output_config[0].get('endpointDataType').lower()
+			self.validate_input_datatypes(value, endpoint_datatype)
 
 	def set_execute_permission(self, tool_directory, command_script):
 		"""Ensure that a script file used to execute the tool in Linux has execute permissions."""
@@ -204,16 +225,35 @@ class ToolExecutor:
 		# Execute the command script
 		self.logger.info(f'Executing command script: {command_script}')
 		try:
-			process = subprocess.run(
-				command_script, shell=True, capture_output=True, text=True, cwd=tool_directory
-			)
+			if self.timeout is not None:
+				process = subprocess.run(
+					command_script,
+					shell=True,
+					capture_output=True,
+					text=True,
+					cwd=tool_directory,
+					timeout=self.timeout * 60,
+				)
+			else:
+				process = subprocess.run(
+					command_script,
+					shell=True,
+					capture_output=True,
+					text=True,
+					cwd=tool_directory,
+				)
 			stdout = process.stdout
 			stderr = process.stderr
 			return_code = process.returncode
+		except subprocess.TimeoutExpired:
+			self.logger.error(
+				f'Timeout of {self.timeout} min expired while executing command script.'
+			)
+			return -1, '', f'Timeout expired: {command_script}', tool_directory, command_script, {}
 		except PermissionError:
 			self.logger.error(f'Permission denied when executing {command_script}')
 			stderr = f'Permission denied: {command_script}'
-			return -1, '', stderr, tool_directory, command_script, {}
+			return -2, '', stderr, tool_directory, command_script, {}
 
 		# Execute the post-script if defined
 		if post_script:
@@ -221,6 +261,8 @@ class ToolExecutor:
 			output_vars = self.execute_python_script(
 				post_script, tool_directory, project_directory, output_vars
 			)
+			# Validate outputs with expected outputs from config file
+			self.validate_outputs(output_vars)
 			self.logger.info(f'Outputs from Post-script: {output_vars}')
 
 		# Restore working directory

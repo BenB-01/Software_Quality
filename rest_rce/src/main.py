@@ -1,3 +1,5 @@
+import asyncio
+import datetime
 import logging
 import multiprocessing
 import sys
@@ -14,6 +16,8 @@ from rest_rce.src.tool_executor import ToolExecutor
 
 # Context variable to store request ID
 request_id_var: ContextVar[str] = ContextVar('request_id', default='')
+
+execution_status = {}
 
 
 def set_up_logger():
@@ -48,14 +52,15 @@ def set_up_logger():
 
 logger = set_up_logger()
 
-# Global variable to store tool configuration
+# Global variables to store tool configuration
 tool_config = {}
+tool_timeout = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 	"""Initialize the configuration from the JSON file passed via command-line argument."""
-	global tool_config
+	global tool_config, tool_timeout
 
 	if len(sys.argv) < 2:
 		logger.error(
@@ -64,6 +69,7 @@ async def lifespan(app: FastAPI):
 		sys.exit(1)
 
 	config_file_path = sys.argv[1]
+	tool_timeout = float(sys.argv[2]) if len(sys.argv) > 2 else None
 
 	try:
 		handler = JsonHandler(logger, config_file_path)
@@ -74,6 +80,8 @@ async def lifespan(app: FastAPI):
 		tool_config.update(config_file)
 		tool_name = tool_config.get('toolName')
 		logger.info(f'Tool configuration of tool {tool_name} loaded successfully.')
+		if tool_timeout is not None:
+			logger.info(f'Tool timeout set to : {tool_timeout} minutes.')
 	except Exception as e:
 		logger.error(e)
 		sys.exit(1)
@@ -117,46 +125,73 @@ def read_root():
 	return {'message': 'API is running. Tool configuration loaded.', 'configuration': tool_config}
 
 
+@app.get('/running-processes/')
+def get_running_processes():
+	global execution_status
+	running_processes = [
+		(key, value) for key, value in execution_status.items() if value.get('status') == 'running'
+	]
+	return running_processes
+
+
 @app.post('/execute-tool/')
-def execute_tool(input_values: InputValues):
-	"""Endpoint to execute a tool using the preloaded configuration and provided inputs."""
-	global tool_config
+async def execute_tool(input_values: InputValues):
+	global tool_config, tool_timeout
 
 	if not tool_config:
 		logger.error('Tool configuration is not loaded.')
 		raise HTTPException(status_code=500, detail='Tool configuration is not loaded.')
 
-	try:
-		# Validate the input values
-		executor = ToolExecutor(tool_config, input_values.inputs, logger)
-		executor.validate_inputs()
-		# Execute the tool with the provided inputs
-		return_code, stdout, stderr, tool_directory, command_script, output_vars = (
-			executor.execute_tool()
-		)
+	# Retrieve the request ID from context variable
+	execution_id = request_id_var.get()
+	execution_status[execution_id] = {'status': 'running', 'started_at': datetime.datetime.now()}
 
-		if return_code == -1:
-			logger.error(f'Execution failed: {stderr}')
-			raise HTTPException(status_code=403, detail=f'Execution failed: {stderr}')
+	def run_execution():
+		"""Execute the tool and update execution status."""
+		try:
+			executor = ToolExecutor(tool_config, input_values.inputs, logger, tool_timeout)
+			executor.validate_inputs()
 
-		if return_code != 0:
-			logger.error(f'Tool execution failed with stderr: {stderr}')
-			raise HTTPException(status_code=500, detail=f'Tool execution failed: {stderr}')
+			return_code, stdout, stderr, tool_directory, command_script, output_vars = (
+				executor.execute_tool()
+			)
 
-		# Return the results
-		cleaned_stdout = stdout.replace('\n', ' | ')
-		tool_name = tool_config.get('toolName')
-		logger.info(f'Tool {tool_name} executed successfully with stdout: {cleaned_stdout}')
-		return {
-			'stdout': stdout,
-			'tool_directory': tool_directory,
-			'command': command_script,
-			'output_variables': output_vars,
-		}
+			if return_code != 0:
+				execution_status[execution_id]['status'] = 'failed'
+				execution_status[execution_id]['stderr'] = stderr
+				if return_code == -1:
+					raise HTTPException(status_code=408, detail=f'{stderr}')
+				if return_code == -2:
+					raise HTTPException(status_code=403, detail=f'{stderr}')
 
-	except Exception as e:
-		logger.error(f'Error during tool execution: {e}')
-		raise HTTPException(status_code=500, detail=str(e)) from e
+			execution_status[execution_id]['status'] = 'completed'
+			execution_status[execution_id].update(
+				{
+					'stdout': stdout,
+					'tool_directory': tool_directory,
+					'command': command_script,
+					'output_variables': output_vars,
+				}
+			)
+
+			return {
+				'execution_id': execution_id,
+				'stdout': stdout,
+				'tool_directory': tool_directory,
+				'command': command_script,
+				'output_variables': output_vars,
+			}
+
+		except Exception as e:
+			logger.error(f'Error during tool execution: {e}')
+			execution_status[execution_id]['status'] = 'failed'
+			execution_status[execution_id]['error'] = str(e)
+			raise HTTPException(status_code=500, detail=str(e)) from e
+
+	# Ensure to properly await the function to get the result and not a coroutine
+	result = await asyncio.to_thread(run_execution)
+
+	return result
 
 
 if __name__ == '__main__':
