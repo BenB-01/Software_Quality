@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 from unittest.mock import Mock, patch
 
 import pytest
@@ -30,10 +31,10 @@ def root_json_handler():
 
 
 @pytest.fixture
-def mock_tool_executor(main_logger, mock_logger):
+def mock_tool_executor(main_logger):
 	with open(VALID_JSON_PATH) as file:
 		configuration = json.load(file)
-	yield ToolExecutor(tool_config=configuration, inputs={'x': 7.7}, logger=mock_logger)
+	yield ToolExecutor(tool_config=configuration, inputs={'x': 7.7}, logger=main_logger)
 
 
 @pytest.fixture()
@@ -135,6 +136,8 @@ def mock_script():
 		(True, 12, 'boolean', 'Expected Boolean, but got'),
 		([1, 2, 3], 123, 'list', 'Expected Array/List, but got'),
 		('FileReferenceString.xml', 1.1, 'filereference', 'Expected File'),
+		({'Dict': 'ionary'}, 'this is not a dict', 'map', 'Expected Map'),
+		(1123, 132, 'not a data type', 'Unsupported endpoint data type'),
 	],
 	ids=[
 		'str_expected',
@@ -144,12 +147,15 @@ def mock_script():
 		'bool_expected',
 		'list_expected',
 		'filereference_expected',
+		'dict_expected',
+		'unsupported_endpoint',
 	],
 )
 def test_validate_input_datatypes_string_value(
 	p_dt_value, p_not_dt_value, p_config_datatype, p_error_string, mock_tool_executor
 ):
-	mock_tool_executor.validate_input_datatypes(p_dt_value, p_config_datatype)
+	if p_config_datatype != 'not a data type':
+		mock_tool_executor.validate_input_datatypes(p_dt_value, p_config_datatype)
 	# Catch case: "float_expected_int_given"
 	if isinstance(p_not_dt_value, int) & (p_config_datatype == 'float'):
 		return True
@@ -241,32 +247,56 @@ def test_find_project_directory(mock_tool_executor, mock_project_dir):
 		assert project_dir is None
 
 
-def test_execute_python_script(mock_tool_executor, mock_script, mock_project_dir):
+def test_execute_python_script(mock_tool_executor, mock_project_dir):
+	"""Tests 'execute_python_script' method of class ToolExecutor"""
 	mock_tool_dir = 'rest_rce/test/tools/root'
+	script = "print('This is a pre script.')"
 	mock_tool_executor.execute_python_script(
-		script=mock_script, project_dir=mock_project_dir, tool_dir=mock_tool_dir
+		script=script, project_dir=mock_project_dir, tool_dir=mock_tool_dir
 	)
 
 
-# @patch("os.chdir")
-# @patch("subprocess.run")
-# def test_execute_python_script_import_error(mock_subprocess,
-# 											mock_chdir,
-# 											mock_tool_executor,
-# 											mock_project_dir):
-# 	script = "print(This is a script)"
-# 	mock_tool_dir = '/fake/tool'
-# 	project_dir = "/fake/project"
-# 	mock_subprocess.side_effect = lambda cmd, check: None
+def test_execute_python_script_replace_output_placeholder(mock_tool_executor):
+	tool_dir = 'rest_rce/test/tools/root'
+	project_dir = mock_tool_executor.find_project_directory(os.getcwd())
+	script = (
+		'file = open("${dir:tool}/result.txt","r")\r\nroot = file.read()\r\n'
+		+ '${out:root} = float(root)'
+	)
+	output_vars = {'k': 1}
+	returned_value = mock_tool_executor.execute_python_script(
+		script=script, project_dir=project_dir, tool_dir=tool_dir, output_vars=output_vars
+	)
 
-# 	with patch("builtins.exec", side_effect=ImportError("No module named 'missing_package'")):
-# 		with pytest.raises(ImportError):
-# 			mock_tool_executor.execute_python_script(script,
-# 											project_dir,
-# 											mock_tool_dir)
+	assert returned_value != {}
 
-# 	mock_chdir.assert_called_with(project_dir)
-# 	mock_subprocess.assert_called_with(["poetry", "add", "missing_package"], check=True)
+
+def test_execute_python_script_import_error(mock_tool_executor):
+	tool_dir = 'rest_rce/test/tools/root'
+	project_dir = mock_tool_executor.find_project_directory(os.getcwd())
+	script = (
+		'import emoji\r\nfile = open("${dir:tool}/result.txt","r")\r\n'
+		+ 'root = file.read()\r\n${out:root} = float(root)'
+	)
+	output_vars = {'k': 1}
+	# with patch('builtins.exec', side_effect=[ImportError(name="emoji"), None]):
+	mock_tool_executor.execute_python_script(
+		script=script, project_dir=project_dir, tool_dir=tool_dir, output_vars=output_vars
+	)
+
+
+def test_execute_python_script_import_error_failed_import(mock_tool_executor):
+	tool_dir = 'rest_rce/test/tools/root'
+	project_dir = mock_tool_executor.find_project_directory(os.getcwd())
+	script = (
+		'import ThisIsNotARealModule\r\nfile = open("${dir:tool}/result.txt","r")\r\n'
+		+ 'root = file.read()\r\n${out:root} = float(root)'
+	)
+	output_vars = {'k': 1}
+	with pytest.raises(subprocess.CalledProcessError):
+		mock_tool_executor.execute_python_script(
+			script=script, project_dir=project_dir, tool_dir=tool_dir, output_vars=output_vars
+		)
 
 
 @patch('os.chdir')
