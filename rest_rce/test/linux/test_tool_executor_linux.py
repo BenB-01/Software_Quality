@@ -76,6 +76,7 @@ def test_execute_tool_timeout_not_reached_linux(
 	"""Test if command script is correctly executed in Ubuntu if timeout parameter
 	is above execution time."""
 	mock_tool_executor_timeout_linux.timeout = 3
+	mock_tool_executor_timeout_linux.inputs = {'x': 2, 'n': 2}
 	return_code, stdout, stderr, tool_directory, command_script, output_vars = (
 		mock_tool_executor_timeout_linux.execute_tool()
 	)

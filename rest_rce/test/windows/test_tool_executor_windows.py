@@ -4,7 +4,13 @@ from unittest.mock import patch
 import pytest
 
 from rest_rce.src.constants import CS_W, POST_S, POLY_VAlID_JSON_PATH
+from rest_rce.src.main import set_up_logger
 from rest_rce.src.tool_executor import ToolExecutor
+
+
+@pytest.fixture
+def main_logger():
+	return set_up_logger()
 
 
 @pytest.fixture
@@ -40,12 +46,14 @@ def test_execute_tool_no_timeout_windows(mock_script_execution, mock_tool_execut
 
 
 @patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')
-def test_execute_tool_missing_project_dir_windows(mock_script_execution, mock_tool_executor):
+def test_execute_tool_missing_project_dir_windows(
+	mock_script_execution, mock_tool_executor_timeout
+):
 	with (
 		patch('rest_rce.src.tool_executor.ToolExecutor.find_project_directory', return_value=None),
 		pytest.raises(FileNotFoundError),
 	):
-		mock_tool_executor.execute_tool()
+		mock_tool_executor_timeout.execute_tool()
 
 
 @patch('rest_rce.src.tool_executor.ToolExecutor.execute_python_script')

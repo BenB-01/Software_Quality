@@ -26,7 +26,7 @@ while [ $i -le $n ]
 do
 	result=`expr $result \* $x`
 	i=`expr $i + 1
-	sleep 20` # sleep to delay the loop and simulate a long running process
+	sleep 10` # sleep to delay the loop and simulate a long running process
 done
 echo "Result:" $result
 echo $result > result
