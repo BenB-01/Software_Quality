@@ -44,25 +44,14 @@ def mock_execution_status():
 	return execution_status
 
 
-def test_read_root(mock_tool_config):
-	"""Test the basic get method."""
-	response = client.get('/')
-	assert response.status_code == 200
-	assert response.json()['message'] == 'API is running. Tool configuration loaded.'
-
-
-def test_get_running_processes(mock_execution_status):
-	"""Test if the running processes are returned correctly."""
-	expected_response = [
-		['task1', {'status': 'running', 'started_at': '2021-09-01T12:00:00'}],
-		['task3', {'status': 'running', 'started_at': '2021-09-01T12:02:00'}],
-	]
-	response = client.get('/running-processes/')
-	assert response.status_code == 200
-	assert response.json() == expected_response
-
-
 # Tests for parse_arguments
+
+# Test following cases:
+# - Required argument only
+# - Required argument and timeout
+# - Required argument and request limit
+# - Required argument, timeout, and request limit
+# - Missing required argument
 
 
 def test_required_argument_only(monkeypatch):
@@ -106,6 +95,32 @@ def test_missing_required_argument(monkeypatch):
 	args = ['script.py']  # No config file path
 	with pytest.raises(SystemExit):
 		run_parse_arguments(args, monkeypatch)
+
+
+# Tests for the main FastAPI application
+
+# Test following cases:
+# - GET request to root endpoint
+# - GET request to running-processes endpoint
+# - POST request to execute-tool endpoint with request limit exceeded
+
+
+def test_read_root(mock_tool_config):
+	"""Test the basic get method."""
+	response = client.get('/')
+	assert response.status_code == 200
+	assert response.json()['message'] == 'API is running. Tool configuration loaded.'
+
+
+def test_get_running_processes(mock_execution_status):
+	"""Test if the running processes are returned correctly."""
+	expected_response = [
+		['task1', {'status': 'running', 'started_at': '2021-09-01T12:00:00'}],
+		['task3', {'status': 'running', 'started_at': '2021-09-01T12:02:00'}],
+	]
+	response = client.get('/running-processes/')
+	assert response.status_code == 200
+	assert response.json() == expected_response
 
 
 def test_execute_tool_exceeds_limit(mock_get_running_processes):

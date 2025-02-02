@@ -5,7 +5,8 @@ from fastapi import HTTPException
 
 from rest_rce.src.constants import CS_W, ENABLE_CS_W, VALID_JSON_PATH
 from rest_rce.src.json_handler import JsonHandler
-from rest_rce.src.main import set_up_logger
+from rest_rce.src.main import request_id_var
+from rest_rce.src.utils import set_up_logger
 
 
 # Pytest fixtures
@@ -24,7 +25,7 @@ def json_essential_fields():
 
 @pytest.fixture
 def main_logger():
-	return set_up_logger()
+	return set_up_logger(request_id_var)
 
 
 @pytest.fixture
