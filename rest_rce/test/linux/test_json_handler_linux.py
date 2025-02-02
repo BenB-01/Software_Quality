@@ -47,7 +47,7 @@ def test_linux_validate_essential_fields_command_script_disabled_error(
 	"""
 	root_json_handler.validate_file()
 	message = (
-		f'400: Command script execution is disabled in the configuration file. '
+		f'422: Command script execution is disabled in the configuration file. '
 		f'Set field {ENABLE_CS_L} to True'
 	)
 	with pytest.raises(HTTPException, match=message):
