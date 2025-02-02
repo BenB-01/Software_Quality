@@ -60,7 +60,7 @@ def test_required_argument_only(monkeypatch):
 	config_file_path, timeout, limit = run_parse_arguments(args, monkeypatch)
 	assert config_file_path == 'config.json'
 	assert timeout is None
-	assert limit is None
+	assert limit == 10
 
 
 def test_with_timeout(monkeypatch):
@@ -69,7 +69,7 @@ def test_with_timeout(monkeypatch):
 	config_file_path, timeout, limit = run_parse_arguments(args, monkeypatch)
 	assert config_file_path == 'config.json'
 	assert timeout == 30.0
-	assert limit is None
+	assert limit == 10
 
 
 def test_with_request_limit(monkeypatch):
