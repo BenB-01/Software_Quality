@@ -1,9 +1,12 @@
 [tool.poetry]
-name = "rest-rce"
+name = "rest_rce"
 version = "0.1.0"
 description = "REST tool for tool integrations in RCE"
 authors = ["BenB-01 <benburkert3@gmail.com>"]
 readme = "README.md"
+
+[tool.poetry.scripts]
+rest_rce = "rest_rce.src.main:main"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"

@@ -19,14 +19,38 @@ Integrate discipline-specific research software tools in RCE using a REST interf
 
 ## 💡 Usage
 REST-RCE can be used via a command line interface.
+As long as you are somewhere in the project's directory, the tool can be run via:
 
-**Powershell/Bash**
+    poetry run rest_rce <path_to_config_file>
 
-    python main.py <path_to_config_file>
-
-After this command, the REST-RCE server will be started and the configuration file will be loaded.
+After this command, the REST-RCE server will be started and the configuration file will be loaded.  
 The server will listen for incoming post requests at http://127.0.0.1:8000/execute-tool/ and execute the tool as 
-defined in the configuration file with the input parameters given in the request.
+defined in the configuration file with the input parameters given in the request.  
+To make this command work, make sure that you have [poetry](README.md#poetry) and the projects dependencies installed.
+
+### 🔧 Parameters
+
+REST-RCE can be run with various different parameters. To check the options in the command line run:
+
+    poetry run rest_rce --help
+
+#### Required parameters: 
+- 'config_file_path': 
+  - type=str
+  - Relative or absolute path to the configuration file of the tool that you want to execute using 
+  REST-RCE. 
+  - Can be passed without explicitly writing 'config_file_path' before the input.
+
+#### Optional parameters: 
+- '-t' or '--timeout':
+  - type=float
+  - Time after which the command script should terminate if it did not execute successfully already. 
+  - default=None
+
+- '-r', '--request_limit': 
+  - type=int
+  - Request limit for parallel processes. If it is reached, further post requests will be denied.
+  - default=10
 
 ## ❓ Detailed setup information 
 

@@ -111,7 +111,7 @@ class JsonHandler:
 						f'{description} not specified in the configuration file. '
 						f'Please add the key "{key}".'
 					)
-				raise HTTPException(status_code=400, detail=message)
+				raise HTTPException(status_code=422, detail=message)
 
 		# Check if tool directory is in launch settings
 		launch_settings = json_data.get(LAUNCH_SETTINGS)
@@ -120,4 +120,4 @@ class JsonHandler:
 				f'Tool directory not specified in the configuration file. '
 				f"Specify directory with key '{TOOL_DIR}' in launch settings."
 			)
-			raise HTTPException(status_code=400, detail=message)
+			raise HTTPException(status_code=422, detail=message)

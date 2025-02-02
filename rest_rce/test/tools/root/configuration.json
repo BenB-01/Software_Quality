@@ -20,7 +20,7 @@
     "limitInstallationInstances" : "true",
     "rootWorkingDirectory" : "",
     "host" : "RCE",
-    "toolDirectory" : "rest_rce/test/tools/root/",
+    "toolDirectory" : "C:\\Tools\\Root\\",
     "version" : "1"
   } ],
   "outputs" : [ {

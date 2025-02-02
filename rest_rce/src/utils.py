@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 from contextvars import ContextVar
 
@@ -10,8 +11,12 @@ def parse_arguments() -> tuple[str, float, int]:
 	# Required argument config file path
 	parser.add_argument('config_file_path', type=str, help='Path to the config file')
 	# Optional arguments
-	parser.add_argument('-t', '--timeout', type=float, help='Timeout value in min', default=None)
-	parser.add_argument('-r', '--request_limit', type=int, help='Request limit', default=None)
+	parser.add_argument(
+		'-t', '--timeout', type=float, help='Timeout value in minutes', default=None
+	)
+	parser.add_argument(
+		'-r', '--request_limit', type=int, help='Request limit for parallel processes', default=10
+	)
 	args = parser.parse_args()
 	config_file_path = args.config_file_path
 	timeout = args.timeout
@@ -36,7 +41,14 @@ def set_up_logger(request_id_var: ContextVar[str]) -> logging.Logger:
 			record.request_id = request_id if request_id else 'SYSTEM'
 			return True
 
-	log_file_handler = logging.FileHandler('tool_execution.log')
+	# Define a fixed log directory inside the project root
+	start_dir = os.path.dirname(os.path.abspath(__file__))  # Directory of the current script
+	repo_root = find_project_directory(start_dir)
+	log_dir = os.path.join(repo_root, 'logs')
+	os.makedirs(log_dir, exist_ok=True)
+	log_file_path = os.path.join(log_dir, 'tool_execution.log')
+
+	log_file_handler = logging.FileHandler(log_file_path)
 	log_file_handler.setFormatter(formatter)
 	log_file_handler.addFilter(ContextFilter())
 
@@ -48,6 +60,20 @@ def set_up_logger(request_id_var: ContextVar[str]) -> logging.Logger:
 	logger.addHandler(console_handler)
 
 	return logger
+
+
+def find_project_directory(start_dir):
+	"""Find the project directory by recursively searching for a pyproject.toml file
+	starting from a given directory."""
+	current_dir = start_dir
+	while current_dir:
+		if os.path.exists(os.path.join(current_dir, 'pyproject.toml')):
+			return current_dir
+		parent_dir = os.path.dirname(current_dir)
+		if parent_dir == current_dir:  # Reached the root directory
+			break
+		current_dir = parent_dir
+	return None
 
 
 def run_parse_arguments(mock_args, monkeypatch):

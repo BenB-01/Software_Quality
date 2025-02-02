@@ -11,6 +11,7 @@ from rest_rce.src.constants import (
 	SET_AS_WORKING_DIR,
 	TOOL_DIR,
 )
+from rest_rce.src.utils import find_project_directory
 
 
 class ToolExecutor:
@@ -50,19 +51,6 @@ class ToolExecutor:
 				raise ValueError(f'Expected Map (key-value), but got {incoming_dtype}: {value}')
 		else:
 			raise ValueError(f'Unsupported endpoint data type: {config_datatype}')
-
-	@staticmethod
-	def find_project_directory(start_dir):
-		"""Recursively search for a pyproject.toml file starting from the given directory."""
-		current_dir = start_dir
-		while current_dir:
-			if os.path.exists(os.path.join(current_dir, 'pyproject.toml')):
-				return current_dir
-			parent_dir = os.path.dirname(current_dir)
-			if parent_dir == current_dir:  # Reached the root directory
-				break
-			current_dir = parent_dir
-		return None
 
 	def validate_inputs(self):
 		"""Validate the input values given in the post request with the tool configuration."""
@@ -202,7 +190,7 @@ class ToolExecutor:
 
 		# Find the project directory with pyproject.toml
 		start_working_dir = os.getcwd()
-		project_directory = self.find_project_directory(start_working_dir)
+		project_directory = find_project_directory(start_working_dir)
 		if not project_directory:
 			self.logger.error(
 				"Could not find pyproject.toml. Ensure you're in the correct project environment."

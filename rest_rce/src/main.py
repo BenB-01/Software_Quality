@@ -18,22 +18,26 @@ from rest_rce.src.utils import parse_arguments, set_up_logger
 # Context variable to store request ID
 request_id_var: ContextVar[str] = ContextVar('request_id', default='')
 
-# Global variables to store tool configuration
+# Global variables to store tool configuration and status of processes
 tool_config = {}
-tool_timeout = None
-request_limit = 10
 execution_status = {}
 
 # Set up logger
 logger = set_up_logger(request_id_var)
+
+# Parse CLI arguments before starting FastAPI
+config_file_path, tool_timeout, request_limit = parse_arguments()
+
+
+# Pydantic model for input values
+class InputValues(BaseModel):
+	inputs: dict
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 	"""Initialize the configuration from the JSON file passed via command-line argument."""
 	global tool_config, tool_timeout, request_limit
-
-	config_file_path, tool_timeout, request_limit = parse_arguments()
 
 	try:
 		handler = JsonHandler(logger, config_file_path)
@@ -43,11 +47,7 @@ async def lifespan(app: FastAPI):
 		config_file = handler.read_file()
 		tool_config.update(config_file)
 		tool_name = tool_config.get('toolName')
-		logger.info(f'Tool configuration of tool {tool_name} loaded successfully.')
-		if tool_timeout is not None:
-			logger.info(f'Tool timeout set to : {tool_timeout} minutes.')
-		if request_limit is not None:
-			logger.info(f'Request limit set to : {request_limit} parallel processes.')
+		logger.info(f'Tool configuration of tool "{tool_name}" loaded successfully.')
 	except Exception as e:
 		logger.error(e)
 		sys.exit(1)
@@ -59,17 +59,13 @@ async def lifespan(app: FastAPI):
 	logger.info('Tool configuration cleared.')
 
 	# Ensure logs are written to the file
-	logger.info('Shutting down the tool. Logs written to tool_execution.log.')
+	logger.info(f'Shutting down the tool "{tool_name}". Logs written to tool_execution.log.')
 	for handler in logger.handlers:
 		if isinstance(handler, logging.FileHandler):
 			handler.close()
 
 
 app = FastAPI(lifespan=lifespan)
-
-
-class InputValues(BaseModel):
-	inputs: dict
 
 
 @app.middleware('http')
@@ -97,6 +93,7 @@ def get_running_processes():
 	running_processes = [
 		(key, value) for key, value in execution_status.items() if value.get('status') == 'running'
 	]
+	logger.info(f'Running processes: {running_processes}.')
 	return running_processes
 
 
@@ -115,7 +112,7 @@ async def execute_tool(input_values: InputValues):
 		logger.error('Tool configuration is not loaded.')
 		raise HTTPException(status_code=400, detail='Tool configuration is not loaded.')
 
-	# Retrieve the request ID from context variable
+	# Add request ID to execution status dictionary
 	execution_id = request_id_var.get()
 	execution_status[execution_id] = {'status': 'running', 'started_at': datetime.datetime.now()}
 
@@ -149,9 +146,9 @@ async def execute_tool(input_values: InputValues):
 
 			return {
 				'execution_id': execution_id,
-				'stdout': stdout,
-				'tool_directory': tool_directory,
 				'command': command_script,
+				'tool_directory': tool_directory,
+				'stdout': stdout,
 				'output_variables': output_vars,
 			}
 
@@ -161,12 +158,24 @@ async def execute_tool(input_values: InputValues):
 			execution_status[execution_id]['error'] = str(e)
 			raise HTTPException(status_code=500, detail=str(e)) from e
 
-	# Ensure to properly await the function to get the result and not a coroutine
+	# Ensure to properly await the function to get the result
 	result = await asyncio.to_thread(run_execution)
 
 	return result
 
 
-if __name__ == '__main__':
+def main():
+	"""Entry point for CLI execution."""
+	logger.info(f'Starting the tool with configuration file: {config_file_path}')
+	if tool_timeout:
+		logger.info(f'Tool timeout set to {tool_timeout} minutes.')
+	else:
+		logger.info('No timeout set for tool execution.')
+	logger.info(f'Request limit set to {request_limit} parallel processes.')
+
 	multiprocessing.freeze_support()  # For Windows support
 	uvicorn.run(app, host='127.0.0.1', port=8000, reload=False, workers=1)
+
+
+if __name__ == '__main__':
+	main()
