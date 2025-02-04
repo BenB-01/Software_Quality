@@ -54,7 +54,7 @@ REST-RCE can be run with various different parameters. To check the options in t
 
 - '-a', '--attempts': 
   - type=int
-  - Number of attempts to execute tool in case of a connection error.
+  - Number of attempts to execute tool. Limits re-tries of the tool execution in case of connection errors.
   - default=3
 
 ## ❓ Detailed setup information 
