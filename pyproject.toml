@@ -12,6 +12,7 @@ rest_rce = "rest_rce.src.main:main"
 python = ">=3.11,<3.14"
 fastapi = {extras = ["standard"], version = "^0.115.6"}
 requests = "^2.32.3"
+tenacity = "^9.0.0"
 
 [tool.poetry.group.dev]
 optional = true

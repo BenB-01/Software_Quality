@@ -57,37 +57,53 @@ def mock_execution_status():
 def test_required_argument_only(monkeypatch):
 	"""Test with only the required config file path."""
 	args = ['script.py', 'config.json']
-	config_file_path, timeout, limit = run_parse_arguments(args, monkeypatch)
+	config_file_path, timeout, limit, attempts = run_parse_arguments(args, monkeypatch)
 	assert config_file_path == 'config.json'
 	assert timeout is None
 	assert limit == 10
+	assert attempts == 3
 
 
 def test_with_timeout(monkeypatch):
 	"""Test with required argument and timeout (-t)."""
 	args = ['script.py', 'config.json', '-t', '30']
-	config_file_path, timeout, limit = run_parse_arguments(args, monkeypatch)
+	config_file_path, timeout, limit, attempts = run_parse_arguments(args, monkeypatch)
 	assert config_file_path == 'config.json'
 	assert timeout == 30.0
 	assert limit == 10
+	assert attempts == 3
 
 
 def test_with_request_limit(monkeypatch):
 	"""Test with required argument and request limit (-r)."""
 	args = ['script.py', 'config.json', '-r', '100']
-	config_file_path, timeout, limit = run_parse_arguments(args, monkeypatch)
+	config_file_path, timeout, limit, attempts = run_parse_arguments(args, monkeypatch)
 	assert config_file_path == 'config.json'
 	assert timeout is None
 	assert limit == 100
+	assert attempts == 3
+
+
+def test_with_attempts(monkeypatch):
+	"""Test with required argument and request limit (-r)."""
+	args = ['script.py', 'config.json', '-a', '5']
+	config_file_path, timeout, limit, attempts = run_parse_arguments(args, monkeypatch)
+	assert config_file_path == 'config.json'
+	assert timeout is None
+	assert limit == 10
+	assert attempts == 5
 
 
 def test_with_all_arguments(monkeypatch):
-	"""Test with required argument, timeout (-t), and request limit (-r)."""
-	args = ['script.py', 'config.json', '-t', '15', '-r', '50']
-	config_file_path, timeout, limit = run_parse_arguments(args, monkeypatch)
+	"""
+	Test with required argument, timeout (-t), request limit (-r) and attempts (-a).
+	"""
+	args = ['script.py', 'config.json', '-t', '15', '-r', '50', '-a', '5']
+	config_file_path, timeout, limit, attempts = run_parse_arguments(args, monkeypatch)
 	assert config_file_path == 'config.json'
 	assert timeout == 15.0
 	assert limit == 50
+	assert attempts == 5
 
 
 def test_missing_required_argument(monkeypatch):

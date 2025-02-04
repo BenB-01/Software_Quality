@@ -1,6 +1,9 @@
 import asyncio
+import os
+from unittest.mock import patch
 
 import pytest
+import requests
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
@@ -46,6 +49,50 @@ def test_execute_tool_linux(mock_tool_config):
 
 	# Send a synchronous POST request
 	response = client.post('/execute-tool/', json=test_input)
+
+	# Verify response
+	assert_output_values(response, expected_output)
+
+
+def test_execute_tool_linux_connection_error_unresolved(mock_tool_config):
+	"""Test execution of the tool in Linux, if a connection error cannot be resolved."""
+	test_input = {'inputs': {'x': 2, 'n': 4}}
+
+	# Send a synchronous POST request
+	with patch(
+		'rest_rce.src.tool_executor.ToolExecutor.execute_tool',
+		side_effect=requests.exceptions.ConnectionError,
+	):
+		response = client.post('/execute-tool/', json=test_input)
+
+	# Verify response (of unresolved error)
+	assert response.status_code == 500
+
+
+def test_execute_tool_linux_connection_error_resolved(mock_tool_config):
+	"""Test execution of the tool in Linux, if a connection error can be resolved."""
+	test_input = {'inputs': {'x': 2, 'n': 4}}
+	output_file_path = 'rest_rce/test/tools/poly//result'
+	stdout = 'Calculating exp\nReceived parameter x=2\nReceived parameter n=4\nResult: 16\n'
+	expected_output = {
+		'command': './poly.sh 2 4',
+		'output_variables': {'fx': output_file_path},
+		'stdout': stdout,
+	}
+
+	# Send a synchronous POST request
+	with patch(
+		'os.getcwd',
+		side_effect=[
+			os.getcwd(),  # during execute_tool
+			os.getcwd(),  # during execute_python_script (pre-script)
+			requests.exceptions.ConnectionError,  # during execute_python_script (post-script)
+			os.getcwd(),  # during execute_tool 2
+			os.getcwd(),  # during execute_python_script (pre-script)
+			os.getcwd(),
+		],
+	):  # during execute_python_script (post-script)
+		response = client.post('/execute-tool/', json=test_input)
 
 	# Verify response
 	assert_output_values(response, expected_output)
