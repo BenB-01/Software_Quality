@@ -7,9 +7,11 @@ import uuid
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 
+import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from rest_rce.src.json_handler import JsonHandler
 from rest_rce.src.tool_executor import ToolExecutor
@@ -26,7 +28,7 @@ execution_status = {}
 logger = set_up_logger(request_id_var)
 
 # Parse CLI arguments before starting FastAPI
-config_file_path, tool_timeout, request_limit = parse_arguments()
+config_file_path, tool_timeout, request_limit, execution_attempts = parse_arguments()
 
 
 # Pydantic model for input values
@@ -68,6 +70,28 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+def retry_logging(retry_state):
+	"""Logging for the retry-mechansim in case of connection errors"""
+	if retry_state.attempt_number > 0:
+		logger.warning(
+			('ConnectionError during execution. Retrying tool execution: %s.' + 'Retry attempt'),
+			retry_state.attempt_number,
+		)
+
+
+@retry(
+	retry=retry_if_exception_type(requests.exceptions.ConnectionError),
+	stop=stop_after_attempt(3),  # Can be overwritten by commandline parameter
+	wait=wait_exponential(multiplier=2, min=2, max=10),
+	reraise=True,
+	before_sleep=retry_logging,
+)
+def execute_tool_with_retry(executor: ToolExecutor):
+	"""Calls execute_tool, but retries only for connection errors."""
+	result = executor.execute_tool()
+	return result
+
+
 @app.middleware('http')
 async def log_requests(request: Request, call_next):
 	"""Middleware to log incoming requests and responses with a unique request ID."""
@@ -99,7 +123,7 @@ def get_running_processes():
 
 @app.post('/execute-tool/')
 async def execute_tool(input_values: InputValues):
-	global tool_config, tool_timeout, request_limit
+	global tool_config, tool_timeout, request_limit, execution_attempts
 
 	running_processes = get_running_processes()
 	logger.info(f'Number of parallel running processes: {len(running_processes)}.')
@@ -123,7 +147,9 @@ async def execute_tool(input_values: InputValues):
 			executor.validate_inputs()
 
 			return_code, stdout, stderr, tool_directory, command_script, output_vars = (
-				executor.execute_tool()
+				execute_tool_with_retry.retry_with(
+					stop=stop_after_attempt(execution_attempts)
+				)(executor)
 			)
 
 			if return_code != 0:

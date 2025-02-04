@@ -17,11 +17,15 @@ def parse_arguments() -> tuple[str, float, int]:
 	parser.add_argument(
 		'-r', '--request_limit', type=int, help='Request limit for parallel processes', default=10
 	)
+	parser.add_argument(
+		'-a', '--attempts', type=int, help='Number of automatic attempts to execute tool', default=3
+	)
 	args = parser.parse_args()
 	config_file_path = args.config_file_path
 	timeout = args.timeout
 	limit = args.request_limit
-	return config_file_path, timeout, limit
+	attempts = args.attempts
+	return config_file_path, timeout, limit, attempts
 
 
 def set_up_logger(request_id_var: ContextVar[str]) -> logging.Logger:

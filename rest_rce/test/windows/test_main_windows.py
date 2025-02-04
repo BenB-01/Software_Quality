@@ -1,6 +1,9 @@
 import asyncio
+import os
+from unittest.mock import patch
 
 import pytest
+import requests
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
@@ -45,6 +48,48 @@ def test_execute_tool_windows(mock_tool_config):
 
 	# Send a synchronous POST request
 	response = client.post('/execute-tool/', json=test_input)
+
+	# Verify response
+	assert_output_values(response, expected_output)
+
+
+def test_execute_tool_windows_connection_error_unresolved(mock_tool_config):
+	"""Test execution of the tool in Windows, if a connection error cannot be resolved."""
+	test_input = {'inputs': {'x': 36}}
+
+	# Send a synchronous POST request
+	with patch(
+		'rest_rce.src.tool_executor.ToolExecutor.execute_tool',
+		side_effect=requests.exceptions.ConnectionError,
+	):
+		response = client.post('/execute-tool/', json=test_input)
+
+	# Verify response (of unresolved error)
+	assert response.status_code == 500
+
+
+def test_execute_tool_windows_connection_error_resolved(mock_tool_config):
+	"""Test execution of the tool in Windows, if a connection error can be resolved."""
+	test_input = {'inputs': {'x': 36}}
+	expected_output = {
+		'command': 'root.exe 36',
+		'output_variables': {'root': 6.0},
+		'stdout': 'Calculating square root...' '\nGot input x = 36\nWrote result 6 to file.\n',
+	}
+
+	# Send a synchronous POST request
+	with patch(
+		'os.getcwd',
+		side_effect=[
+			os.getcwd(),  # during execute_tool
+			os.getcwd(),  # during execute_python_script (pre-script)
+			requests.exceptions.ConnectionError,  # during execute_python_script (post-script)
+			os.getcwd(),  # during execute_tool 2
+			os.getcwd(),  # during execute_python_script (pre-script)
+			os.getcwd(),
+		],
+	):  # during execute_python_script (post-script)
+		response = client.post('/execute-tool/', json=test_input)
 
 	# Verify response
 	assert_output_values(response, expected_output)
